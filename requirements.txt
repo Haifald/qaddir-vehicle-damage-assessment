@@ -1,0 +1,11 @@
+jupyter>=1.1,<2
+ipykernel>=6.29,<7
+numpy>=2.0,<3
+pandas>=2.2,<3
+matplotlib>=3.9,<4
+seaborn>=0.13,<1
+opencv-python>=4.10,<5
+Pillow>=10.4,<13
+PyYAML>=6,<7
+pycocotools>=2.0.8,<3
+ultralytics>=8.3,<9

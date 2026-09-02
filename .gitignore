@@ -1,0 +1,25 @@
+# Local datasets
+data/*
+!data/README.md
+
+# Virtual environments and secrets
+.venv/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Training and generated outputs
+models/
+runs/
+outputs/
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
