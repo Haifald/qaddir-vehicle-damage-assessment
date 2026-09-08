@@ -18,9 +18,6 @@ Verify:
 python -c "import qaddir; print(qaddir.__version__); print(qaddir.paths.describe())"
 ```
 
-Install a single area instead of everything with `requirements-cv.txt`,
-`requirements-llm.txt` or `requirements-app.txt`.
-
 ## Repository layout
 
 | Path | Contents |
