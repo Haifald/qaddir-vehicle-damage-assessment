@@ -1,0 +1,4 @@
+# LLM component. The SDK is deliberately unpinned until TASK-24 selects a model;
+# add the chosen client (for example anthropic or openai) there.
+-r requirements-base.txt
+python-dotenv>=1.0,<2
