@@ -1,0 +1,5 @@
+# Computer vision: dataset conversion, training and inference.
+-r requirements-base.txt
+opencv-python>=4.10,<5
+pycocotools>=2.0.8,<3
+ultralytics>=8.3,<9
