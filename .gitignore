@@ -9,10 +9,6 @@ data/*
 # Python
 __pycache__/
 *.py[cod]
-*.egg-info/
-.eggs/
-build/
-dist/
 
 # Jupyter
 .ipynb_checkpoints/

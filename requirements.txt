@@ -1,11 +1,11 @@
-# Full environment. Equivalent to the previous flat file, now composed from the
-# per-area groups so a single area can be installed on its own:
-#
-#   pip install -r requirements-cv.txt     # data + CV only
-#   pip install -r requirements-llm.txt    # data + LLM only
-#   pip install -r requirements.txt        # everything
-#
-# Install the project itself in editable mode so `import qaddir` works:
-#
-#   pip install -e .
--r requirements-app.txt
+jupyter>=1.1,<2
+ipykernel>=6.29,<7
+numpy>=2.0,<3
+pandas>=2.2,<3
+matplotlib>=3.9,<4
+seaborn>=0.13,<1
+opencv-python>=4.10,<5
+Pillow>=10.4,<13
+PyYAML>=6,<7
+pycocotools>=2.0.8,<3
+ultralytics>=8.3,<9
