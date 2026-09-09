@@ -1,4 +1,0 @@
-# Streamlit MVP. Pulls in CV and LLM because the app runs the full pipeline.
--r requirements-cv.txt
--r requirements-llm.txt
-streamlit>=1.38,<2
