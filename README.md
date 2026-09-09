@@ -102,6 +102,14 @@ cd qaddir-vehicle-damage-assessment
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+pip install -e .
+```
+
+The final step installs the project itself, so `import qaddir` works from
+notebooks and scripts. Check it:
+
+```bash
+python -c "import qaddir; print(qaddir.__version__)"
 ```
 
 Then open the `notebooks/` folder and select the project virtual environment as
@@ -146,18 +154,14 @@ Conventions:
 - Notebooks are numbered in pipeline order and keep their outputs committed, so
   results are visible without re-running them.
 
-### Work completed on branches, not yet merged
+### Completed tasks
 
-The following are finished on their branches. **Neither is part of `main`, and
-neither is present in a fresh clone of the default branch.**
+| Task | Contents |
+|---|---|
+| TASK-02 — Repository engineering baseline | The `src/qaddir/` package (`data`, `cv`, `llm`, `app`) and `pyproject.toml`, making project code importable |
+| TASK-03 — Damage class taxonomy | [`docs/damage_classes.md`](docs/damage_classes.md): the six damage classes, their CarDD label mapping, per-class definitions and the recorded decisions |
 
-| Task | Branch | Contents |
-|---|---|---|
-| TASK-02 — Repository engineering baseline | `task-02-minimal` | A `src/qaddir/` package (`data`, `cv`, `llm`, `app`) and `pyproject.toml`, so project code becomes importable |
-| TASK-03 — Damage class taxonomy | `task-03-damage-taxonomy` | `docs/damage_classes.md`: the six damage classes, their CarDD label mapping, per-class definitions and the recorded decisions |
-
-Until these are merged, the setup instructions above are complete as written:
-`main` has no installable package, so `requirements.txt` is all that is needed.
+Both are included in this branch. They are not yet on `main`.
 
 ## Next Steps
 
@@ -165,8 +169,8 @@ In dependency order:
 
 1. **Acquire the CarDD images.** The dataset must be in place before anything
    can be converted or trained.
-2. **Merge the pending TASK-02 and TASK-03 branches** so the package structure
-   and the damage taxonomy are on `main`.
+2. **Bring the completed TASK-02 and TASK-03 work onto `main`**, so the package
+   structure and the damage taxonomy are on the default branch.
 3. **Finalise the vehicle-part taxonomy** and resolve the open questions raised
    by the Carparts-Seg validation.
 4. **Run and validate the CarDD conversion**, confirming the converted polygons
