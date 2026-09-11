@@ -1,6 +1,10 @@
 # Local datasets
 data/*
 !data/README.md
+datasets/
+
+# Dataset archives
+*.zip
 
 # Virtual environments and secrets
 .venv/
@@ -15,8 +19,24 @@ __pycache__/
 
 # Training and generated outputs
 models/
+weights/
+*.pt
+*.pth
+*.ckpt
+*.onnx
 runs/
 outputs/
+wandb/
+
+# Generated caches
+cache/
+.cache/
+*.cache
+
+# Kaggle temporary outputs
+kaggle/working/
+kaggle/temp/
+.kaggle/
 
 # Editors and operating systems
 .vscode/
