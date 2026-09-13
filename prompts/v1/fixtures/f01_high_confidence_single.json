@@ -1,0 +1,12 @@
+{
+  "image": { "id": "fx-01", "usable": true, "quality_note": null },
+  "damage_detections": [
+    { "id": "d1", "class": "glass_shatter", "confidence": 0.94 }
+  ],
+  "part_detections": [
+    { "id": "p1", "class": "front_glass", "confidence": 0.91 }
+  ],
+  "associations": [
+    { "damage_id": "d1", "part_id": "p1", "confidence": 0.89, "alternatives": [] }
+  ]
+}

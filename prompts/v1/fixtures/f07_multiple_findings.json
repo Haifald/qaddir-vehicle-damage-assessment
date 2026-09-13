@@ -1,0 +1,20 @@
+{
+  "image": { "id": "fx-07", "usable": true, "quality_note": null },
+  "damage_detections": [
+    { "id": "d1", "class": "glass_shatter", "confidence": 0.93 },
+    { "id": "d2", "class": "scratch",       "confidence": 0.45 },
+    { "id": "d3", "class": "tire_flat",     "confidence": 0.88 },
+    { "id": "d4", "class": "dent",          "confidence": 0.19 }
+  ],
+  "part_detections": [
+    { "id": "p1", "class": "front_glass", "confidence": 0.90 },
+    { "id": "p2", "class": "back_door",   "confidence": 0.86 },
+    { "id": "p3", "class": "wheel",       "confidence": 0.79 }
+  ],
+  "associations": [
+    { "damage_id": "d1", "part_id": "p1", "confidence": 0.90, "alternatives": [] },
+    { "damage_id": "d2", "part_id": "p2", "confidence": 0.78, "alternatives": [] },
+    { "damage_id": "d3", "part_id": "p3", "confidence": 0.85, "alternatives": [] },
+    { "damage_id": "d4", "part_id": null, "confidence": 0.0,  "alternatives": [] }
+  ]
+}

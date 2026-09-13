@@ -1,0 +1,9 @@
+{
+  "image": { "id": "fx-02", "usable": true, "quality_note": null },
+  "damage_detections": [],
+  "part_detections": [
+    { "id": "p1", "class": "front_bumper", "confidence": 0.88 },
+    { "id": "p2", "class": "hood", "confidence": 0.85 }
+  ],
+  "associations": []
+}

@@ -1,0 +1,12 @@
+{
+  "image": { "id": "fx-08", "usable": true, "quality_note": null },
+  "damage_detections": [
+    { "id": "d1", "class": "scratch", "confidence": 0.81 }
+  ],
+  "part_detections": [
+    { "id": "p1", "class": "front_bumper", "confidence": 0.87 }
+  ],
+  "associations": [
+    { "damage_id": "d1", "part_id": "p1", "confidence": 0.34, "alternatives": [] }
+  ]
+}
