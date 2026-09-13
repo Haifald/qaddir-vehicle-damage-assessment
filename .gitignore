@@ -20,8 +20,9 @@ dist/
 models/
 runs/
 outputs/
-# ...except the stored TASK-25 prompt-test reports, which are a deliverable
+# ...except the stored prompt-test reports, which are TASK-25/TASK-26 deliverables
 !prompts/v1/outputs/
+!prompts/v2/outputs/
 
 # Editors and operating systems
 .vscode/

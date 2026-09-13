@@ -1,0 +1,6 @@
+{
+  "image": { "id": "adv-04", "usable": true, "quality_note": null },
+  "part_detections": [
+    { "id": "p1", "class": "back_door", "confidence": 0.77 }
+  ]
+}
