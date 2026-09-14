@@ -1,6 +1,10 @@
 # Local datasets
 data/*
 !data/README.md
+datasets/
+
+# Dataset archives
+*.zip
 
 # Virtual environments and secrets
 .venv/
@@ -18,8 +22,25 @@ dist/
 
 # Training and generated outputs
 models/
+weights/
+*.pt
+*.pth
+*.ckpt
+*.onnx
 runs/
 outputs/
+wandb/
+
+# Generated caches
+cache/
+.cache/
+*.cache
+
+# Kaggle temporary outputs
+kaggle/working/
+kaggle/temp/
+.kaggle/
+
 # ...except the stored prompt-test reports, which are TASK-25/TASK-26 deliverables
 !prompts/v1/outputs/
 !prompts/v2/outputs/
