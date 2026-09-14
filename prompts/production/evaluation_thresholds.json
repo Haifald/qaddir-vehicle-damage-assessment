@@ -1,0 +1,15 @@
+{
+  "_label": "TEST-ONLY THRESHOLD CONFIGURATION \u2014 NOT PRODUCTION POLICY",
+  "_status": "uncalibrated placeholders",
+  "_source_of_truth": "docs/llm_scope_and_constraints.md (TASK-24) \u00a75 defines these parameters and deliberately leaves their values unset. Final values remain pending TASK-18 and TASK-23. Nothing in this file constitutes a calibration decision.",
+  "_purpose": "Prompt V2 cannot be executed without concrete numbers. These values are IDENTICAL to prompts/v1/test_thresholds.json by design: holding thresholds fixed is what makes the V1-vs-V2 comparison attributable to the prompt rather than to a threshold change. They carry no empirical justification and must not be cited as recommended values.",
+  "_replace_when": "TASK-18 selects the production damage model and TASK-23 measures matching accuracy. Replace the values below; the prompt and runner read them from here and need no edits.",
+  "thresholds": {
+    "T_DAMAGE_REPORT": 0.3,
+    "T_DAMAGE_HEDGE": 0.6,
+    "T_PART_REPORT": 0.5,
+    "T_ASSOC_STATE": 0.6,
+    "T_ASSOC_AMBIG": 0.1
+  },
+  "_comparability": "Do not change these values without also re-running V1. Any change invalidates the stored V1-vs-V2 comparison in prompts/v2/README.md."
+}

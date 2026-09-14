@@ -1,0 +1,14 @@
+# Production Prompt Manifest (TASK-27)
+
+Selected: Prompt V2. Frozen exactly as evaluated; content not edited after scoring.
+Frozen on: 2026-09-14
+
+SHA-256:
+
+430c1299d9047c0ec5f65f7c7be9a7dc7c7ab2177629995e2b51eac2f68c7ed3  v2/prompt_v2.md  (evaluated source)
+4d6032e819b13a74db9c192ff595bfe165b9cb52c12837e34a069986cd5c8a3e  v2/test_thresholds.json  (evaluated thresholds)
+430c1299d9047c0ec5f65f7c7be9a7dc7c7ab2177629995e2b51eac2f68c7ed3  production/prompt_production.md  (frozen copy)
+4d6032e819b13a74db9c192ff595bfe165b9cb52c12837e34a069986cd5c8a3e  production/evaluation_thresholds.json  (evaluation thresholds, preserved for reproducibility)
+
+The frozen copy and its evaluated source must hash identically.
+Verify with: python3 prompts/production/verify_production.py
