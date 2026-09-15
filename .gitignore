@@ -9,6 +9,14 @@ datasets/
 # Virtual environments and secrets
 .venv/
 .env
+.env.local
+
+# Frontend dependencies and builds
+node_modules/
+.next/
+frontend/out/
+frontend/.npm-cache/
+*.tsbuildinfo
 
 # Python
 __pycache__/
@@ -27,6 +35,7 @@ weights/
 runs/
 outputs/
 wandb/
+backend/runtime/
 
 # Generated caches
 cache/

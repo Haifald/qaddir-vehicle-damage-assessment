@@ -24,6 +24,7 @@ produce a structured preliminary report for human review.
 - [Project Status](#project-status)
 - [Results So Far](#results-so-far)
 - [Repository Structure](#repository-structure)
+- [Application Layer](#application-layer)
 - [Getting Started](#getting-started)
 - [Development Workflow](#development-workflow)
 - [Roadmap](#roadmap)
@@ -62,15 +63,15 @@ never a system that decides on its own.
               │                               │
               └───────────────┬───────────────┘
                               ▼
-                  damage-to-part matching          ⬜ not started
+                  damage-to-part matching          🟨 provisional baseline
                   e.g. scratch → front bumper
                               │
                               ▼
-                      structured JSON              ⬜ not started
+                      structured JSON              🟨 provisional contract
               damage type · part · confidence
                               │
                               ▼
-                       language model              ⬜ not started
+                       language model              🟨 prompt/API integration
                               │
                               ▼
                    preliminary report
@@ -133,8 +134,12 @@ image can never cross a split boundary: 3,269 train / 561 validation / 554 test.
 
 ## Project Status
 
-**Phase: computer-vision experiments.** Both vision models are trained. The
-matching, LLM and interface layers have not been started.
+**Phase: application integration.** The vehicle-part model is trained and
+selected; the damage experiments are trained but still need a production-model
+selection. A Next.js interface, FastAPI boundary, provisional spatial matcher,
+verification layer and LLM gateway now exist on `main`. The frozen production
+prompt remains on `Ruba` pending reviewed integration, and the production
+thresholds remain uncalibrated.
 
 The work runs as two parallel tracks, which is why the notebook numbering has
 two `07`s and two `10`s — one of each per track.
@@ -161,10 +166,12 @@ two `07`s and two `10`s — one of each per track.
 | `09_carparts_wheel_fixed_baseline.ipynb` | Wheel-corrected baseline (`v3`) | ✅ |
 | `10_carparts_manual_hyperparameter_tuning.ipynb` | Five-stage manual tuning, model selection, locked test evaluation | ✅ |
 
-### Not started
+### Integration dependencies still open
 
-Damage-to-part matching, the structured CV output schema, the language-model
-component, the Streamlit prototype, and integrated end-to-end evaluation.
+Production damage-model selection/export, quantitative damage-to-part matching
+evaluation, production threshold calibration, reviewed integration of the
+`Ruba` prompt, and end-to-end evaluation with real checkpoints and an approved
+LLM configuration.
 
 > **Note** — `docs/damage_classes.md`, the `src/qaddir/` package and
 > `pyproject.toml` currently exist only on the `Ruba` branch and are not yet
@@ -249,6 +256,66 @@ qaddir-vehicle-damage-assessment/
 | `references/` | The Taqeem professional-standards PDF and its reviewed OCR text, staged for the LLM/RAG work. |
 | `scripts/` | Standalone utilities. |
 | `data/` | Local datasets in a fixed layout. Contents excluded from Git; only the layout spec is tracked. |
+
+## Application Layer
+
+The repository now includes a presentation-ready Next.js interface and a
+separate FastAPI application boundary. The implementation is intentionally
+honest about incomplete project dependencies: it does not use the committed
+generic YOLO starter weights as Qaddir models, invent severity, or simulate
+assessment results.
+
+```text
+frontend/                      Next.js assessor interface
+backend/qaddir_api/            FastAPI and pipeline services
+  cv.py                        image checks and Ultralytics adapters
+  matching.py                  provisional spatial association baseline
+  verification.py              structured evidence validation
+  llm.py                       frozen-prompt loader and LLM gateway
+  report_guard.py              post-generation grounding check
+  service.py                   end-to-end orchestration
+docs/application_architecture.md
+docs/branch_integration_review.md
+```
+
+The API contract matches the provisional input documented on the `Ruba` branch.
+The application loads that branch's frozen production prompt by path after it is
+reviewed and integrated; it does not copy or modify the teammate-owned prompt.
+See [`docs/branch_integration_review.md`](docs/branch_integration_review.md) for
+the branch comparison and remaining work, and
+[`docs/application_architecture.md`](docs/application_architecture.md) for the
+request flow. The complete change inventory is in
+[`docs/implementation_summary.md`](docs/implementation_summary.md).
+
+### Run the application locally
+
+The UI can be reviewed before the real AI pipeline is configured. In that state,
+its readiness panel explains exactly which components are missing and image
+analysis returns no fabricated result.
+
+```powershell
+# API (from the repository root)
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r backend\requirements.txt
+Copy-Item .env.example .env
+# Populate .env with reviewed checkpoint, inference, threshold, and LLM values.
+uvicorn qaddir_api.main:app --app-dir backend --env-file .env --reload
+
+# UI (in a second terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+Provide only real production checkpoint paths. Ultralytics confidence, image
+size, and device are explicit settings and must be selected for those
+checkpoints. The five verification threshold variables must remain unset until
+they are calibrated from the selected models and association evaluation. The
+frozen Ruba prompt was evaluated on Claude Sonnet 5 and must be re-evaluated on
+the exact configured OpenAI model before presentation use. The API health route is
+`http://localhost:8000/api/v1/health`; the interface is
+`http://localhost:3000`.
 
 ## Getting Started
 
@@ -340,12 +407,13 @@ In dependency order:
    prediction examples, focused on `crack` and `scratch`.
 3. **Measure the domain gap** — the part model trains largely on intact vehicles
    but must run on photographs of damaged ones (TASK-05, still open).
-4. **Define the structured CV output schema** — the JSON contract between the
-   vision models and the language model.
-5. **Implement and evaluate damage-to-part matching.**
-6. **Build the LLM layer** — role, scope, hallucination constraints, then prompt
-   versions compared and one selected.
-7. **Build the Streamlit MVP** and run integrated end-to-end evaluation.
+4. **Finalize the provisional structured CV output schema** now shared by the
+   application and the `Ruba` prompt.
+5. **Evaluate and calibrate the provisional damage-to-part overlap matcher.**
+6. **Review and integrate the frozen `Ruba` production prompt**, then configure
+   the application LLM gateway without editing that artefact.
+7. **Connect real checkpoints to the Next.js/FastAPI application** and run
+   integrated end-to-end evaluation.
 
 ## References
 
