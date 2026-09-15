@@ -1,0 +1,4 @@
+Experiment,Best Epoch,Precision,Recall,mAP50,mAP50-95
+Exp1 - Baseline,75,0.63269,0.49838,0.49928,0.38871
+Exp2 - Augmentation,100,0.67598,0.64617,0.65501,0.49047
+Exp3 - Training Strategy,168,0.74509,0.61042,0.65817,0.50352
