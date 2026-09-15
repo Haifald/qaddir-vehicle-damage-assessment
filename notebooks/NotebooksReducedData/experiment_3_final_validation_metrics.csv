@@ -1,0 +1,2 @@
+experiment,model,split,precision,recall,mAP50,mAP50-95
+Experiment 3,YOLO11n,validation,0.7403893377718941,0.6081304406648715,0.6538427183256804,0.500475837776291
