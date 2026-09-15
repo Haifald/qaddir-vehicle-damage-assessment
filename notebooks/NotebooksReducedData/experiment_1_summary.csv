@@ -1,0 +1,2 @@
+Experiment,Model,Dataset,Train Images,Validation Images,Epochs,Image Size,Batch Size,Optimizer,AMP,Seed,Best Epoch,Precision,Recall,mAP50,mAP50-95,Training Time (min)
+Experiment 1 - Reduced Baseline,YOLO11n,CarDD Reduced,1408,810,100,640,16,Auto,True,42,75,0.63269,0.49838,0.49928,0.38871,21.17
