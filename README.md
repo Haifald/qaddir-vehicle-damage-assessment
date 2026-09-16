@@ -1,442 +1,489 @@
 <div align="center">
 
-# Qaddir
+<h1>Qaddir</h1>
 
-**AI-Assisted Preliminary Vehicle Damage Assessment**
+<p><strong>AI-Assisted Preliminary Vehicle Damage Assessment</strong></p>
 
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![Status](https://img.shields.io/badge/status-CV%20experiments-yellow)]()
-[![Notebooks](https://img.shields.io/badge/notebooks-Jupyter-f37626)](notebooks/)
+<p>
+Computer vision finds visible damage and the vehicle part it affects.<br/>
+A guarded language model reports only what was detected — for a person to review, never to decide.
+</p>
 
-Identify visible vehicle damage from photographs, locate the affected part, and
-produce a structured preliminary report for human review.
+<p>
+<sub><b>LIVE</b></sub>&nbsp;
+<a href="https://github.com/Haifald/qaddir-vehicle-damage-assessment/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Haifald/qaddir-vehicle-damage-assessment/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+<img alt="Last update" src="https://img.shields.io/github/last-commit/Haifald/qaddir-vehicle-damage-assessment/main?label=last%20update">
+<img alt="Python version" src="https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2FHaifald%2Fqaddir-vehicle-damage-assessment%2Fmain%2Fpyproject.toml&label=python">
+<img alt="Next.js version" src="https://img.shields.io/github/package-json/dependency-version/Haifald/qaddir-vehicle-damage-assessment/next?filename=frontend%2Fpackage.json&label=next.js">
+</p>
+
+<p>
+<sub><b>RECORDED</b></sub>&nbsp;
+<a href="#model-status"><img alt="Vehicle parts: evaluated" src="https://img.shields.io/badge/vehicle%20parts-evaluated-2ea44f?style=flat-square"></a>
+<a href="#model-status"><img alt="Damage model: experimental" src="https://img.shields.io/badge/damage%20model-experimental-d97706?style=flat-square"></a>
+<a href="#safety"><img alt="LLM guard: implemented" src="https://img.shields.io/badge/LLM%20guard-implemented-1f6feb?style=flat-square"></a>
+<a href="#project-health"><img alt="API: not deployed" src="https://img.shields.io/badge/API-not%20deployed-6e7781?style=flat-square"></a>
+</p>
+
+<sub><b>Live</b> badges update automatically from GitHub. <b>Recorded</b> states reflect the evaluation records linked below.</sub>
+
+<br/><br/>
+
+<a href="#overview">Overview</a> ·
+<a href="#pipeline">Pipeline</a> ·
+<a href="#model-status">Models</a> ·
+<a href="#results">Results</a> ·
+<a href="#dataset">Dataset</a> ·
+<a href="#safety">Safety</a> ·
+<a href="#architecture">Architecture</a> ·
+<a href="#setup">Setup</a> ·
+<a href="#roadmap">Roadmap</a>
+
+<br/><br/>
+
+<table>
+<tr>
+<td align="center" width="25%"><sub>VEHICLE PARTS</sub><h2>0.707</h2><sub>mask mAP50-95<br/>locked test split · selected model</sub></td>
+<td align="center" width="25%"><sub>DAMAGE DETECTION</sub><h2>0.503</h2><sub>box mAP50-95<br/>Exp7 YOLO11m · test split</sub></td>
+<td align="center" width="25%"><sub>ADVERSARIAL INPUTS</sub><h2>4 / 4</h2><sub>handled by Prompt V2<br/>Prompt V1: 0 / 4</sub></td>
+<td align="center" width="25%"><sub>REPORT SAFETY</sub><h2>0</h2><sub>hallucinations<br/>11 reports reviewed by hand</sub></td>
+</tr>
+</table>
+
+<sub>Prompt results were generated with Claude Sonnet 5. The application calls the OpenAI Responses API and has not yet been re-evaluated on it.</sub>
 
 </div>
 
----
+```mermaid
+flowchart LR
+    subgraph APP["Application"]
+        IN(["Vehicle image"]) --> VAL["Validate image"]
+    end
+    subgraph CV["CV layer"]
+        DMG["Damage detection<br/>YOLO11"]
+        PRT["Part segmentation<br/>YOLO11n-seg"]
+        ASC["Association<br/>box coverage"]
+        REC[("Structured<br/>CV record")]
+        DMG --> ASC
+        PRT --> ASC
+        ASC --> REC
+    end
+    subgraph PRE["Safety · before LLM"]
+        VER{{"Verification"}}
+    end
+    subgraph LLM["LLM layer"]
+        PRM["Frozen Prompt V2"] --> GEN["Language model"]
+    end
+    subgraph POST["Safety · after LLM"]
+        OG{{"Output guard"}}
+    end
 
-## Contents
+    VAL ==> DMG
+    VAL ==> PRT
+    REC ==> VER
+    VER ==>|"verified"| PRM
+    GEN ==> OG
+    OG ==>|"passes"| OUT(["Preliminary report<br/>for human review"])
 
-- [Concept](#concept)
-- [How It Works](#how-it-works)
-- [Damage Taxonomy](#damage-taxonomy)
-- [Vehicle-Part Taxonomy](#vehicle-part-taxonomy)
-- [Project Status](#project-status)
-- [Results So Far](#results-so-far)
-- [Repository Structure](#repository-structure)
-- [Application Layer](#application-layer)
-- [Getting Started](#getting-started)
-- [Development Workflow](#development-workflow)
-- [Roadmap](#roadmap)
-- [References](#references)
+    VAL -.->|"unusable image"| VER
+    VER -.->|"manual review · rejected"| FND["Findings shown<br/>no report"]
+    OG -.->|"unsupported claim"| SUP["Report suppressed"]
 
----
-
-## Concept
-
-Assessing vehicle damage from photographs is manual, slow and inconsistent. The
-same images can lead different assessors to different conclusions, and the work
-does not scale to the volume of claims and inspections handled in practice.
-
-Qaddir explores two questions:
-
-1. Can computer vision reliably identify **what damage is visible** and **which
-   vehicle part it affects**?
-2. Can a language model turn those structured findings into a **readable
-   preliminary report** without inventing anything the models did not detect?
-
-The result is intended as an aid that a qualified person reviews and approves —
-never a system that decides on its own.
-
-## How It Works
-
-```text
-        vehicle image
-              │
-              ▼
-   ┌──────────────────────┐        ┌──────────────────────┐
-   │   damage detection   │        │ vehicle-part         │
-   │   what & where       │        │ segmentation         │
-   │   (CarDD)            │        │ (Carparts-Seg)       │
-   │   ✅ trained          │        │ ✅ trained            │
-   └──────────┬───────────┘        └──────────┬───────────┘
-              │                               │
-              └───────────────┬───────────────┘
-                              ▼
-                  damage-to-part matching          🟨 provisional baseline
-                  e.g. scratch → front bumper
-                              │
-                              ▼
-                      structured JSON              🟨 provisional contract
-              damage type · part · confidence
-                              │
-                              ▼
-                       language model              🟨 prompt/API integration
-                              │
-                              ▼
-                   preliminary report
-                  reviewed and approved
-                       by a person
+    classDef app fill:#475569,stroke:#334155,color:#ffffff
+    classDef cv fill:#4f46e5,stroke:#3730a3,color:#ffffff
+    classDef gate fill:#b45309,stroke:#92400e,color:#ffffff
+    classDef llm fill:#0f766e,stroke:#115e59,color:#ffffff
+    classDef done fill:#15803d,stroke:#166534,color:#ffffff
+    classDef halt fill:#9ca3af,stroke:#6b7280,color:#111827
+    class IN,VAL app
+    class DMG,PRT,ASC,REC cv
+    class VER,OG gate
+    class PRM,GEN llm
+    class OUT done
+    class FND,SUP halt
 ```
 
-**The structured JSON is the boundary between the two components.** The language
-model receives only what the vision models actually detected, so every statement
-in the generated report traces back to a detection. This is what keeps the
-report grounded rather than plausible-sounding.
+> [!IMPORTANT]
+> Qaddir never states severity, cause, repair, cost or safety — and never says a vehicle is undamaged. *"No damage was detected"* describes the system, not the car. See [Safety](#safety).
 
-Two datasets support the vision side, plus one external dataset merged into the
-vehicle-part track:
+---
 
-| Dataset | Role | Scale |
+## Overview
+
+Assessing vehicle damage from photographs is manual, slow and inconsistent: the same images can lead different assessors to different conclusions.
+
+Qaddir splits the problem at a hard boundary.
+
+- **Computer vision** detects damage across 6 classes and segments vehicle parts across 13, then links each damage to the part it overlaps.
+- **A structured record** captures only what the models detected: classes, confidences and damage-to-part links.
+- **A language model** writes a preliminary report from that record alone, under a written specification of what it may and may not say.
+
+Every statement in a report must trace back to a field in the record. The output is a preliminary aid for human review, not a final assessment.
+
+## Pipeline
+
+The diagram above is the request flow implemented in [`backend/qaddir_api/service.py`](backend/qaddir_api/service.py) and documented in [`docs/application_architecture.md`](docs/application_architecture.md). Solid arrows show the path to a report. Dotted arrows show where a request stops short of one.
+
+| Stage | What happens | Implemented in |
 |---|---|---|
-| **CarDD** | Damage detection — 6 damage types | 4,000 images · 8,740 instances |
-| **Carparts-Seg** | Vehicle-part segmentation — merged to 13 classes | 3,833 images |
-| **Humans in the Loop** | External part data, audited and merged | 998 images · 9,189 polygons |
+| **Validate** | Checks the upload; an unusable image skips inference entirely | [`cv.py`](backend/qaddir_api/cv.py) |
+| **Detect** | Damage detection and part segmentation run on the same image | [`cv.py`](backend/qaddir_api/cv.py) |
+| **Associate** | Links each damage to parts by damage-box coverage, keeping up to three ranked alternatives | [`matching.py`](backend/qaddir_api/matching.py) |
+| **Structure** | Builds a typed record that rejects unknown fields | [`schemas.py`](backend/qaddir_api/schemas.py) |
+| **Verify** | Classifies the record `verified`, `manual_review` or `rejected`; only `verified` reaches the LLM | [`verification.py`](backend/qaddir_api/verification.py) |
+| **Generate** | Loads the frozen prompt only after its integrity check passes | [`llm.py`](backend/qaddir_api/llm.py) |
+| **Guard** | Suppresses a report that matches prohibited-term patterns or names a class absent from the record | [`report_guard.py`](backend/qaddir_api/report_guard.py) |
 
-## Damage Taxonomy
+## Model Status
 
-Six damage classes, taken from CarDD without merges or exclusions, renamed to
-snake_case for tooling compatibility. The ordering is **fixed**: it is written
-into the dataset configuration and baked into any trained model.
+| Component | Artifact | Task | Evaluation | Status |
+|---|---|---|---|:--:|
+| **Vehicle-part model** | YOLO11n-seg<br/><sub>`carparts_yolo11n_wheel_fixed_v3_best.pt`</sub> | Instance segmentation · 13 classes | Test mask mAP50-95 **0.707** on a locked split, opened once | ![Evaluated](https://img.shields.io/badge/-Evaluated-2ea44f?style=flat-square) |
+| **Damage model** | YOLO11m · Exp7 | Detection · 6 classes | Test box mAP50-95 **0.503**; no selection rationale recorded | ![Experimental](https://img.shields.io/badge/-Experimental-d97706?style=flat-square) |
+| **Association** | `associate_by_overlap` | Damage-to-part linking | No accuracy evaluation in the repository | ![Prototype](https://img.shields.io/badge/-Prototype-8250df?style=flat-square) |
+| **Verification & output guard** | `verification.py` · `report_guard.py` | Fail-closed gates | Backend unit tests, run in CI | ![Implemented](https://img.shields.io/badge/-Implemented-1f6feb?style=flat-square) |
+| **Report prompt** | Prompt V2, frozen and SHA-256 pinned | Grounded reporting | 4 / 4 adversarial inputs; 0 hallucinations in 11 reviewed reports; evaluated on Claude Sonnet 5 only | ![Prototype](https://img.shields.io/badge/-Prototype-8250df?style=flat-square) |
+| **Thresholds** | 5 policy parameters | Reporting, hedging and association cutoffs | Uncalibrated | ![In Progress](https://img.shields.io/badge/-In%20Progress-6e7781?style=flat-square) |
 
-| ID | Class | Instances | Share | Notes |
-|:--:|---|--:|--:|---|
-| 0 | `dent` | 2,543 | 29.1% | Panel deformed, finish largely intact |
-| 1 | `scratch` | 3,595 | 41.1% | Surface finish only, panel undeformed |
-| 2 | `crack` | 898 | 10.3% | Through-material split — smallest, hardest class |
-| 3 | `glass_shatter` | 682 | 7.8% | Window glass only |
-| 4 | `lamp_broken` | 704 | 8.1% | Light units, including the lens |
-| 5 | `tire_flat` | 318 | 3.6% | Tyre only, not the rim |
+<sub>**Evaluated** — measured on held-out data and formally selected · **Experimental** — measured, not formally selected · **Prototype** — working, not validated for its intended use · **Implemented** — built and covered by automated tests · **In Progress** — not yet complete</sub>
 
-Measured across all 8,740 annotated instances. Full definitions, boundary rules
-and the CarDD label mapping live in the `Ruba` working branch
-(`docs/damage_classes.md`) and will be published here once merged.
+> [!WARNING]
+> **Trained weights are not in this repository.** The tracked `models/best.pt` is a 1-byte placeholder, not a checkpoint.
 
-## Vehicle-Part Taxonomy
+## Project Health
 
-The original Carparts-Seg 23 classes were merged down to **13**. Direction-specific
-doors, lights and mirrors were collapsed into general part classes, the ambiguous
-`object` class was dropped, and the `trunk` / `tailgate` definitions were corrected
-after a cross-dataset annotation review.
+<a href="https://github.com/Haifald/qaddir-vehicle-damage-assessment/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Haifald/qaddir-vehicle-damage-assessment/actions/workflows/ci.yml/badge.svg?branch=main"></a>
 
-| ID | Class | Train instances | | ID | Class | Train instances |
-|:--:|---|--:|---|:--:|---|--:|
-| 0 | `back_bumper` | 935 | | 7 | `front_light` | 3,465 |
-| 1 | `back_door` | 1,752 | | 8 | `hood` | 1,971 |
-| 2 | `back_glass` | 939 | | 9 | `side_mirror` | 1,372 |
-| 3 | `back_light` | 2,202 | | 10 | `trunk_or_tailgate` | 370 |
-| 4 | `front_bumper` | 1,884 | | 11 | `truck_bed` | 121 |
-| 5 | `front_door` | 1,973 | | 12 | `wheel` | 2,005 |
-| 6 | `front_glass` | 1,904 | | | | |
+| Area | State | Signal | Evidence |
+|---|---|:--:|---|
+| Backend pipeline | Implemented · unit tests passing | **live** | CI job *Backend tests* |
+| Frozen prompt | Byte-identical to the evaluated Prompt V2 | **live** | CI job *Prompt integrity* |
+| Frontend | Implemented · typecheck passing | **live** | CI job *Frontend typecheck* |
+| Datasets | Prepared · not committed | recorded | [`data/README.md`](data/README.md) |
+| Vehicle-part model | Evaluated · selected | recorded | [Results](#results) |
+| Damage model | Experimental | recorded | [Results](#results) |
+| Association | Prototype · not evaluated | recorded | [`matching.py`](backend/qaddir_api/matching.py) |
+| API | Implemented · not deployed | recorded | no deployment configuration in the repository |
+| LLM provider | Not re-evaluated on the configured model | recorded | [`docs/application_architecture.md`](docs/application_architecture.md) |
+| Thresholds | Uncalibrated | recorded | [`.env.example`](.env.example) |
+| Model weights | Not on `main` | recorded | `models/best.pt` is a 1-byte placeholder |
 
-Splits are built at **source-image level**, so augmented versions of one source
-image can never cross a split boundary: 3,269 train / 561 validation / 554 test.
+<sub>**Live** rows are checked by the CI workflow on every push to `main`, so the badge above reflects their current state. **Recorded** rows change only when this README is updated.</sub>
 
-## Project Status
+## Results
 
-**Phase: application integration.** The vehicle-part model is trained and
-selected; the damage experiments are trained but still need a production-model
-selection. A Next.js interface, FastAPI boundary, provisional spatial matcher,
-verification layer and LLM gateway now exist on `main`. The frozen production
-prompt remains on `Ruba` pending reviewed integration, and the production
-thresholds remain uncalibrated.
+Results fall into categories that are **not interchangeable** — test, validation and prompt evaluation. Each table states which it is.
 
-The work runs as two parallel tracks, which is why the notebook numbering has
-two `07`s and two `10`s — one of each per track.
+### Vehicle-part segmentation · test split
 
-### Damage detection track (CarDD)
+The selected model is the wheel-fixed `v3` baseline. The test split stayed locked through tuning and selection and was evaluated **once**, after the choice was made.
 
-| Notebook | Purpose | Status |
-|---|---|:--:|
-| `01_CarDD_Data_Analysis_EDAL.ipynb` | CarDD EDA: composition, imbalance, box geometry, spatial distribution, annotation quality | ✅ |
-| `02_cardd_annotation_conversion_.ipynb` | CarDD COCO → YOLO segmentation conversion | ✅ |
-| `07_cardd_baseline_model_.ipynb` | Baseline damage model (Experiment 1) | ✅ |
-| `10_cardd_experiment_2.ipynb` | Experiment 2 — stronger augmentation, longer schedule | ✅ |
-
-### Vehicle-part track (Carparts-Seg)
-
-| Notebook | Purpose | Status |
-|---|---|:--:|
-| `03_carparts_preprocessing.ipynb` | Validation: splits, annotations, class balance, mask quality | ✅ |
-| `04_carparts_cleaning_and_preparation.ipynb` | Cleaning, class merge to 13, leakage-safe source-level split | ✅ |
-| `05_carparts_segmentation_baseline.ipynb` | YOLO11n-seg baseline fine-tune | ✅ |
-| `06_external_carparts_data_audit.ipynb` | Audit of the external Humans in the Loop dataset | ✅ |
-| `07_carparts_expanded_data_training.ipynb` | Expanded-data training; found trunk/tailgate class mismatch | ✅ |
-| `08_carparts_corrected_augmentation_training.ipynb` | Corrected classes + controlled augmentation | ✅ |
-| `09_carparts_wheel_fixed_baseline.ipynb` | Wheel-corrected baseline (`v3`) | ✅ |
-| `10_carparts_manual_hyperparameter_tuning.ipynb` | Five-stage manual tuning, model selection, locked test evaluation | ✅ |
-
-### Integration dependencies still open
-
-Production damage-model selection/export, quantitative damage-to-part matching
-evaluation, production threshold calibration, reviewed integration of the
-`Ruba` prompt, and end-to-end evaluation with real checkpoints and an approved
-LLM configuration.
-
-> **Note** — `docs/damage_classes.md`, the `src/qaddir/` package and
-> `pyproject.toml` currently exist only on the `Ruba` branch and are not yet
-> merged into `main`.
-
-## Results So Far
-
-### Vehicle-part segmentation — final model selected
-
-The selected model is the wheel-fixed `v3` baseline
-(`carparts_yolo11n_wheel_fixed_v3_best.pt`). Manual hyperparameter tuning
-improved overall Mask mAP50-95 by only +0.0034 — inside the pre-agreed 0.005
-practical tolerance — while *reducing* wheel performance, so the baseline was
-kept.
-
-The test split stayed locked throughout tuning and selection, and was evaluated
-**once**, after the model was chosen:
-
-| Metric | Validation | Test |
+| Metric (mask) | Validation | **Test** |
 |---|--:|--:|
-| Mask Precision | 0.894 | 0.838 |
-| Mask Recall | 0.883 | 0.897 |
-| Mask mAP50 | 0.935 | 0.906 |
-| Mask mAP50-95 | 0.737 | 0.707 |
-| Wheel Mask mAP50-95 | 0.618 | 0.611 |
+| Precision | 0.894 | **0.838** |
+| Recall | 0.883 | **0.897** |
+| mAP50 | 0.935 | **0.906** |
+| mAP50-95 | 0.737 | **0.707** |
+| `wheel` mAP50-95 | 0.618 | **0.611** |
 
-`wheel` remains the weakest class, traced to known inconsistencies in wheel
-annotations rather than to the training configuration.
+**Why this model:** manual tuning raised validation mask mAP50-95 by only +0.003408 — inside the predefined 0.005 practical tolerance — while reducing `wheel` performance, so the baseline was kept. `wheel` remains the weakest class; the notebook lists known inconsistencies in wheel annotations among the remaining limitations.
 
-### Damage detection — experiments in progress
+<sub>Sources: [`09_carparts_wheel_fixed_baseline.ipynb`](notebooks/09_carparts_wheel_fixed_baseline.ipynb) (validation) · [`10_carparts_manual_hyperparameter_tuning.ipynb`](notebooks/10_carparts_manual_hyperparameter_tuning.ipynb) (selection and test)</sub>
 
-| Metric | Exp 1 (baseline) | Exp 2 (augmentation) | Change |
-|---|--:|--:|--:|
-| Precision | 0.625 | 0.623 | −0.002 |
-| Recall | 0.576 | 0.627 | **+0.051** |
-| mAP50 | 0.587 | 0.633 | **+0.046** |
-| mAP50-95 | 0.462 | 0.456 | −0.006 |
+### Damage detection · test split
 
-Experiment 2 is a **mixed result** — clearly better recall and mAP50, marginally
-worse mAP50-95 — so no production damage model has been selected yet.
+[`YOLOM.ipynb`](notebooks/YOLOM.ipynb) loads the Exp7 YOLO11m checkpoint as its final model and evaluates it once on the 374-image test split (785 instances). The notebook records no rationale for choosing Exp7, and the checkpoint tested is the base Exp7 run, not the fine-tuned variant trained later in the same notebook.
 
-Per-class validation, Experiment 2:
+| Precision | Recall | mAP50 | mAP50-95 |
+|--:|--:|--:|--:|
+| **0.733** | **0.657** | **0.685** | **0.503** |
 
-| Class | Precision | Recall | mAP50 | mAP50-95 |
-|---|--:|--:|--:|--:|
-| `dent` | 0.583 | 0.469 | 0.498 | 0.234 |
-| `scratch` | 0.529 | 0.449 | 0.453 | 0.222 |
-| `crack` | 0.259 | 0.158 | 0.116 | 0.045 |
-| `glass_shatter` | 0.915 | 0.978 | 0.984 | 0.824 |
-| `lamp_broken` | 0.586 | 0.837 | 0.835 | 0.624 |
-| `tire_flat` | 0.869 | 0.871 | 0.914 | 0.786 |
+<details>
+<summary><strong>Per-class test results</strong></summary>
 
-The pattern is consistent and worth stating plainly: **discrete, high-contrast
-damage is close to solved; diffuse surface damage is not.** `glass_shatter` and
-`tire_flat` exceed 0.78 mAP50-95, while `crack` sits at 0.045 — it is the
-smallest class, and the hardest to see.
+<br/>
 
-## Repository Structure
+| Class | mAP50-95 |
+|---|--:|
+| `tire_flat` | 0.836 |
+| `glass_shatter` | 0.817 |
+| `lamp_broken` | 0.598 |
+| `dent` | 0.295 |
+| `scratch` | 0.272 |
+| `crack` | **0.199** |
+
+`tire_flat` and `glass_shatter` both exceed 0.80, while `dent`, `scratch` and `crack` all score below 0.30.
+
+<sub>Source: [`YOLOM.ipynb`](notebooks/YOLOM.ipynb), cells 45–46</sub>
+
+</details>
+
+### Damage detection · validation, CarDD Reduced
+
+All four experiments train on the reduced CarDD training set (1,408 images) at image size 640 and are evaluated on the same 810-image validation split.
+
+| Experiment | Model | Precision | Recall | mAP50 | mAP50-95 |
+|---|---|--:|--:|--:|--:|
+| Exp1 — Baseline | YOLO11n | 0.633 | 0.498 | 0.499 | 0.389 |
+| Exp2 — Augmentation | YOLO11n | 0.676 | 0.646 | 0.655 | 0.490 |
+| Exp3 — Training strategy | YOLO11n | 0.745 | 0.610 | 0.658 | 0.504 |
+| Exp7 | YOLO11m | 0.680 | 0.642 | 0.653 | 0.489 |
+
+<details>
+<summary><strong>Source notes and earlier full-CarDD experiments</strong></summary>
+
+<br/>
+
+**Sources.** Exp1–3 come from [`experiments_1_2_3_comparison.csv`](notebooks/NotebooksReducedData/experiments_1_2_3_comparison.csv) and Exp7 from [`YOLOM.ipynb`](notebooks/YOLOM.ipynb). [`experiment_3_final_validation_metrics.csv`](notebooks/NotebooksReducedData/experiment_3_final_validation_metrics.csv) records slightly different Exp3 values (0.740 / 0.608 / 0.654 / 0.500); the table uses the comparison file so Exp1–3 share one source. `YOLOM.ipynb` also tabulates an Exp6 (YOLO11s) result that has no accompanying notebook, so it is omitted.
+
+**Full CarDD.** A separate, earlier track trained on the full CarDD training set. These numbers are **not comparable** with the reduced-set table.
+
+| Experiment | Model | Precision | Recall | mAP50 | mAP50-95 |
+|---|---|--:|--:|--:|--:|
+| Exp1 — Baseline | YOLO11n | 0.625 | 0.576 | 0.587 | 0.462 |
+| Exp2 — Augmentation | YOLO11n | 0.623 | 0.627 | 0.633 | 0.456 |
+
+Exp2 raised recall and mAP50 but lowered precision and mAP50-95. The notebook states that Exp2 counts as an improvement only if it improves meaningfully without degrading important classes, and does not declare one.
+
+<sub>Source: [`10_cardd_experiment_2.ipynb`](notebooks/10_cardd_experiment_2.ipynb)</sub>
+
+</details>
+
+### Report prompt · evaluation
+
+Two prompt versions were scored against one rubric, with its decision rule fixed before scoring. Both ran on 9 well-formed fixtures and 4 adversarial ones: instructions injected into JSON fields, an unrecognised class, and a malformed record.
+
+| | Prompt V1 | **Prompt V2** |
+|---|--:|--:|
+| Well-formed fixtures — rubric subtotal | 4.5 / 5 | **4.7 / 5** |
+| Adversarial fixtures — rubric subtotal | 2.3 / 5 | **5.0 / 5** |
+| Adversarial fixtures handled | 0 / 4 | **4 / 4** |
+| Critical defects | 3 | **0** |
+
+**Prompt V2 was selected** on the pre-registered safety gate. A separate manual review of 11 V2 reports, checked claim by claim against their inputs, found **0 hallucinations and 0 omissions** across ~29 claims, with 8 of 11 reports fully supported.
+
+<sub>Sources: [`prompts/evaluation/RESULTS.md`](prompts/evaluation/RESULTS.md) · [`prompts/evaluation/manual_review.md`](prompts/evaluation/manual_review.md) · [`prompts/v2/README.md`](prompts/v2/README.md)</sub>
+
+## Safety
+
+The language model is a transcription layer, not an assessor. Its limits are written down in [`docs/llm_scope_and_constraints.md`](docs/llm_scope_and_constraints.md) and enforced in code on both sides of the model.
+
+| It may | It never |
+|---|---|
+| Name a damage class present in the record | Assesses severity, extent or cause |
+| Name a vehicle part the evidence licenses | Recommends a repair or estimates cost |
+| Hedge a low-confidence finding visibly | States safety, roadworthiness or liability |
+| List competing parts when the link is ambiguous | Identifies the vehicle, owner or location |
+| Say that *no damage was detected* | Says the vehicle is undamaged |
+
+**Four layers of enforcement:**
+
+1. **Verification** rejects or holds for manual review any record with unknown classes, broken references, contradictions or uncertain confidence — before the LLM is called. <sub>[`verification.py`](backend/qaddir_api/verification.py)</sub>
+2. **The prompt** instructs the model to treat every JSON field as untrusted data, and never to obey, quote or mention instruction-like text found inside it. It held on all 4 adversarial fixtures. <sub>[`prompt_v2.md`](prompts/v2/prompt_v2.md)</sub>
+3. **The output guard** suppresses a generated report that matches prohibited-term patterns or names a class absent from the record. <sub>[`report_guard.py`](backend/qaddir_api/report_guard.py)</sub>
+4. **Integrity pinning** stops the application loading the prompt unless it is byte-identical to the evaluated version. CI checks this on every push. <sub>[`verify_production.py`](prompts/production/verify_production.py)</sub>
+
+<details>
+<summary><strong>Known follow-ups from the manual review</strong></summary>
+
+<br/>
+
+The manual review found four substantive issues in the frozen prompt. Each describes real evidence inaccurately rather than inventing any, and all are recorded for a future prompt version rather than patched into the evaluated one:
+
+- A report can say *"no damage was detected"* while its appendix lists detections below the reporting threshold.
+- Appendix text asserts that suppressed detections were not matched to parts, even when one was.
+- A high-confidence detection with an unrecognised class is filed under "low-confidence detections".
+- An image id containing injected text is truncated without saying so.
+
+<sub>Source: [`prompts/evaluation/manual_review.md`](prompts/evaluation/manual_review.md)</sub>
+
+</details>
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph UI["frontend/ · Next.js"]
+        W["Assessment workspace"]
+    end
+    subgraph API["backend/qaddir_api/ · FastAPI"]
+        R["main.py<br/>/api/v1/health · assess · verify"]
+        S["service.py"]
+        CVM["cv.py"]
+        MA["matching.py"]
+        VE["verification.py"]
+        LL["llm.py"]
+        RG["report_guard.py"]
+    end
+    subgraph ART["Local artefacts"]
+        WT[("models/<br/>weights · not committed")]
+        PP[("prompts/production/<br/>frozen prompt")]
+    end
+    subgraph CI["GitHub Actions"]
+        CK{{"CI workflow"}}
+    end
+
+    W --> R --> S
+    S --> CVM --> MA --> VE --> LL --> RG
+    CVM -.-> WT
+    LL -.->|"verify_production.py"| PP
+    CK -.->|"prompt integrity"| PP
+    CK -.->|"unit tests"| API
+    CK -.->|"typecheck"| UI
+
+    classDef ui fill:#475569,stroke:#334155,color:#ffffff
+    classDef api fill:#4f46e5,stroke:#3730a3,color:#ffffff
+    classDef art fill:#0f766e,stroke:#115e59,color:#ffffff
+    classDef ci fill:#b45309,stroke:#92400e,color:#ffffff
+    class W ui
+    class R,S,CVM,MA,VE,LL,RG api
+    class WT,PP art
+    class CK ci
+```
+
+The API exposes `GET /api/v1/health`, which reports readiness separately for CV, thresholds, the frozen prompt and the LLM provider; `POST /api/v1/assess`, which runs the pipeline on one image; and `POST /api/v1/verify`, which checks a CV record without calling an LLM. Interactive docs are served at `/docs`.
+
+## Dataset
+
+| Dataset | Role | Scale | Preparation |
+|---|---|---|---|
+| **CarDD** | Damage detection | 4,000 images · 8,740 annotations · splits 2,816 / 810 / 374 | COCO annotations converted to YOLO format, splits preserved |
+| **Carparts-Seg** | Vehicle-part segmentation | 3,833 label files · 23 source classes | 135 empty label files and 12 files containing the ambiguous `object` class excluded; direction-specific doors, lights and mirrors merged, giving 13 classes |
+| **Humans in the Loop** (external) | Additional part data | 998 image–annotation pairs · 9,189 polygons mapped to 12 of 13 classes | Audited visually and checked for duplicates before merging |
+
+The final part-model dataset (Carparts-Seg plus external data) is split **3,269 / 561 / 554** images, built at source-image level so augmented versions of one image never cross a split boundary. Datasets are not stored in the repository; see [`data/README.md`](data/README.md) for the expected layout.
+
+<sub>Sources: [`docs/cardd_data_card.md`](docs/cardd_data_card.md) · [`03_carparts_preprocessing.ipynb`](notebooks/03_carparts_preprocessing.ipynb) · [`04_carparts_cleaning_and_preparation.ipynb`](notebooks/04_carparts_cleaning_and_preparation.ipynb) · [`06_external_carparts_data_audit.ipynb`](notebooks/06_external_carparts_data_audit.ipynb) · [`09_carparts_wheel_fixed_baseline.ipynb`](notebooks/09_carparts_wheel_fixed_baseline.ipynb)</sub>
+
+<details>
+<summary><strong>Class taxonomies</strong></summary>
+
+<br/>
+
+**Damage — 6 classes.** Kept from CarDD with no merges or exclusions. The order is fixed and baked into trained weights; three names were changed to snake_case.
+
+| ID | Class | CarDD annotations |
+|:--:|---|--:|
+| 0 | `dent` | 2,543 |
+| 1 | `scratch` | 3,595 |
+| 2 | `crack` | 898 |
+| 3 | `glass_shatter` | 681 |
+| 4 | `lamp_broken` | 704 |
+| 5 | `tire_flat` | 319 |
+
+**Vehicle parts — 13 classes**, merged from 23:
+
+`back_bumper` · `back_door` · `back_glass` · `back_light` · `front_bumper` · `front_door` · `front_glass` · `front_light` · `hood` · `side_mirror` · `trunk_or_tailgate` · `truck_bed` · `wheel`
+
+`trunk_or_tailgate` and `truck_bed` reflect a correction made after a cross-dataset review showed the source `trunk` class meant different things in each dataset.
+
+<sub>Sources: [`docs/damage_classes.md`](docs/damage_classes.md) · [`docs/cardd_data_card.md`](docs/cardd_data_card.md) · [`config.py`](backend/qaddir_api/config.py) · [`08_carparts_corrected_augmentation_training.ipynb`](notebooks/08_carparts_corrected_augmentation_training.ipynb)</sub>
+
+</details>
+
+<details>
+<summary><strong>Repository structure</strong></summary>
+
+<br/>
 
 ```text
 qaddir-vehicle-damage-assessment/
-├── notebooks/                  Analysis, preparation and training
-│   ├── 01,02,07,10_cardd_*     Damage detection track
-│   ├── 03–10_carparts_*        Vehicle-part track
-│   └── cardd_eda_extracted/    CarDD COCO annotation files
-├── docs/
-│   ├── cardd_data_card.md      CarDD data card
-│   ├── references.md           External references
-│   └── reference_pdf_extraction.md
-├── references/                 Taqeem standards PDF + OCR-extracted text
-├── scripts/
-│   └── extract_reference_pdf.py
-├── data/README.md              Required local dataset layout
-├── requirements.txt
-└── Qaddir-TaskPlan-Clear-Descriptions.xlsx    The 40-task project plan
+├── .github/workflows/     CI: prompt integrity, backend tests, frontend typecheck
+├── backend/
+│   ├── qaddir_api/        FastAPI service: CV, matching, schema, verification, LLM, output guard
+│   └── tests/             Backend unit tests
+├── frontend/              Next.js assessment interface
+├── notebooks/             Data analysis, preparation and training experiments
+│   └── NotebooksReducedData/   Reduced-CarDD experiments and result CSVs
+├── prompts/
+│   ├── v1/  v2/           Prompt versions, fixtures and stored outputs
+│   ├── evaluation/        Rubric, scorer, results and manual review
+│   └── production/        Frozen production prompt and integrity verifier
+├── docs/                  Architecture, data card, taxonomy, LLM constraints
+├── references/            Taqeem vehicle-assessment standards and extracted text
+├── scripts/               Reference PDF extraction
+├── data/                  Local dataset layout (datasets not committed)
+├── models/                Local model weights (not committed)
+├── src/qaddir/            Importable package skeleton
+├── .env.example           Runtime configuration template
+└── pyproject.toml
 ```
 
-| Location | Purpose |
-|---|---|
-| `notebooks/` | Exploration, data preparation, training and evaluation. Numbered in pipeline order, per track. |
-| `docs/` | Recorded decisions, data cards and external references. |
-| `references/` | The Taqeem professional-standards PDF and its reviewed OCR text, staged for the LLM/RAG work. |
-| `scripts/` | Standalone utilities. |
-| `data/` | Local datasets in a fixed layout. Contents excluded from Git; only the layout spec is tracked. |
+</details>
 
-## Application Layer
+<details>
+<summary><strong>Repository activity</strong></summary>
 
-The repository now includes a presentation-ready Next.js interface and a
-separate FastAPI application boundary. The implementation is intentionally
-honest about incomplete project dependencies: it does not use the committed
-generic YOLO starter weights as Qaddir models, invent severity, or simulate
-assessment results.
+<br/>
 
-```text
-frontend/                      Next.js assessor interface
-backend/qaddir_api/            FastAPI and pipeline services
-  cv.py                        image checks and Ultralytics adapters
-  matching.py                  provisional spatial association baseline
-  verification.py              structured evidence validation
-  llm.py                       frozen-prompt loader and LLM gateway
-  report_guard.py              post-generation grounding check
-  service.py                   end-to-end orchestration
-docs/application_architecture.md
-docs/branch_integration_review.md
-```
+<img alt="Contributors" src="https://img.shields.io/github/contributors/Haifald/qaddir-vehicle-damage-assessment">
+<img alt="Commit activity" src="https://img.shields.io/github/commit-activity/m/Haifald/qaddir-vehicle-damage-assessment">
+<img alt="Open issues" src="https://img.shields.io/github/issues/Haifald/qaddir-vehicle-damage-assessment">
+<img alt="Closed issues" src="https://img.shields.io/github/issues-closed/Haifald/qaddir-vehicle-damage-assessment">
+<img alt="Repository size" src="https://img.shields.io/github/repo-size/Haifald/qaddir-vehicle-damage-assessment">
 
-The API contract matches the provisional input documented on the `Ruba` branch.
-The application loads that branch's frozen production prompt by path after it is
-reviewed and integrated; it does not copy or modify the teammate-owned prompt.
-See [`docs/branch_integration_review.md`](docs/branch_integration_review.md) for
-the branch comparison and remaining work, and
-[`docs/application_architecture.md`](docs/application_architecture.md) for the
-request flow. The complete change inventory is in
-[`docs/implementation_summary.md`](docs/implementation_summary.md).
+<sub>All values update automatically. Project tasks are tracked as GitHub Issues.</sub>
 
-### Run the application locally
+</details>
 
-The UI can be reviewed before the real AI pipeline is configured. In that state,
-its readiness panel explains exactly which components are missing and image
-analysis returns no fabricated result.
+## Setup
 
-```powershell
-# API (from the repository root)
-py -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r backend\requirements.txt
-Copy-Item .env.example .env
-# Populate .env with reviewed checkpoint, inference, threshold, and LLM values.
+**Requirements:** Python 3.10+, Node.js with npm.
+
+**Backend** — from the repository root:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+cp .env.example .env
 uvicorn qaddir_api.main:app --app-dir backend --env-file .env --reload
+```
 
-# UI (in a second terminal)
+**Frontend** — in a second terminal:
+
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Provide only real production checkpoint paths. Ultralytics confidence, image
-size, and device are explicit settings and must be selected for those
-checkpoints. The five verification threshold variables must remain unset until
-they are calibrated from the selected models and association evaluation. The
-frozen Ruba prompt was evaluated on Claude Sonnet 5 and must be re-evaluated on
-the exact configured OpenAI model before presentation use. The API health route is
-`http://localhost:8000/api/v1/health`; the interface is
-`http://localhost:3000`.
+The interface runs at `http://localhost:3000`, the health check at `http://localhost:8000/api/v1/health`, and API docs at `http://localhost:8000/docs`.
 
-## Getting Started
+Without model weights, inference settings, thresholds and an API key configured in `.env`, the application still starts. Its readiness panel names each missing component, and image analysis returns an error rather than simulated results.
 
-**Requirements:** Python 3.10 or later.
+For the notebooks, install the root [`requirements.txt`](requirements.txt) instead. To run the backend tests exactly as CI does:
 
 ```bash
-git clone https://github.com/Haifald/qaddir-vehicle-damage-assessment.git
-cd qaddir-vehicle-damage-assessment
-
-python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-
-pip install -r requirements.txt
-pip install -e .
+python -m unittest discover -s backend/tests -t backend
 ```
-
-The final step installs the project itself, so `import qaddir` works from
-notebooks and scripts. Check it:
-
-```bash
-python -c "import qaddir; print(qaddir.__version__)"
-```
-
-Then open `notebooks/` and select the project virtual environment as the kernel.
-
-The reference-extraction script additionally needs Tesseract OCR 5 with the
-`ara` and `eng` language data — see
-[`docs/reference_pdf_extraction.md`](docs/reference_pdf_extraction.md).
-
-### Compute note
-
-Training was run on Google Colab and Kaggle GPUs (Tesla T4), not locally. The
-notebooks keep their outputs committed, so the recorded metrics are readable
-without re-running them.
-
-### Datasets
-
-Datasets are **not** included in this repository. Place them locally following
-[`data/README.md`](data/README.md):
-
-```text
-data/
-├── cardd/{raw,processed}/
-└── carparts/{raw,processed}/
-```
-
-CarDD is obtained from its authors, who provide a download link after a signed
-licensing form — see [References](#references).
-
-### Built With
-
-`ultralytics` · `pycocotools` · `opencv-python` · `numpy` · `pandas` ·
-`matplotlib` · `seaborn` · `Pillow` · `PyYAML` · `PyMuPDF` · `pytesseract` ·
-`jupyter`
-
-## Development Workflow
-
-Work is organised as **40 tasks**, tracked as GitHub Issues (`TASK-01` to
-`TASK-40`) and in the project plan spreadsheet. Each task records its epic,
-owner, priority, dependencies and a Definition of Done.
-
-| Epic | Tasks | | Epic | Tasks |
-|---|:--:|---|---|:--:|
-| Foundation | 5 | | LLM | 5 |
-| Data Preparation | 6 | | Integration | 2 |
-| CV Baseline | 4 | | MVP | 4 |
-| CV Improvement | 5 | | Evaluation | 1 |
-| Damage-Part Match | 3 | | Documentation | 5 |
-
-Closed to date: TASK-01 through TASK-04 and TASK-06 through TASK-16.
-TASK-05 (cross-domain feasibility spike) remains open and was taken out of
-sequence.
-
-**Branches**
-
-| Branch | Role |
-|---|---|
-| `main` | Stable, reviewed work |
-| `Ruba` | Active development branch |
-
-**Conventions**
-
-- A task is complete when its Definition of Done is objectively met — not when
-  the code appears to work.
-- Notebooks are numbered in pipeline order and keep their outputs committed, so
-  results are visible without re-running them.
-- Datasets are never committed; only the layout specification is tracked.
-- Test splits stay locked until a model is selected on validation data.
 
 ## Roadmap
 
-In dependency order:
+Progress recorded in the repository.
 
-1. **Run damage Experiment 3** (model size or training strategy) and **select the
-   production damage model** — Experiment 2 was inconclusive.
-2. **Error analysis** on the selected model, with correct and incorrect
-   prediction examples, focused on `crack` and `scratch`.
-3. **Measure the domain gap** — the part model trains largely on intact vehicles
-   but must run on photographs of damaged ones (TASK-05, still open).
-4. **Finalize the provisional structured CV output schema** now shared by the
-   application and the `Ruba` prompt.
-5. **Evaluate and calibrate the provisional damage-to-part overlap matcher.**
-6. **Review and integrate the frozen `Ruba` production prompt**, then configure
-   the application LLM gateway without editing that artefact.
-7. **Connect real checkpoints to the Next.js/FastAPI application** and run
-   integrated end-to-end evaluation.
+- [x] Damage and vehicle-part taxonomies fixed
+- [x] Datasets cleaned, merged and split at source-image level
+- [x] Vehicle-part model selected and evaluated on a locked test split
+- [x] Damage model Exp7 evaluated on the test split
+- [x] Backend pipeline with pre- and post-LLM safety gates
+- [x] Prompt V2 selected, frozen and integrity-pinned
+- [x] CI for prompt integrity, backend tests and frontend typecheck
+- [ ] Record a selection rationale for the damage model
+- [ ] Evaluate damage-to-part association accuracy
+- [ ] Calibrate the five reporting thresholds
+- [ ] Supply trained weights for both models
+- [ ] Re-evaluate the frozen prompt on the configured OpenAI model
+- [ ] Address the four manual-review findings in a new prompt version
+- [ ] Run the pipeline end to end on real images
 
 ## References
 
-- **CarDD** — Wang, Li & Wu, *CarDD: A New Dataset for Vision-Based Car Damage
-  Detection*, IEEE Transactions on Intelligent Transportation Systems,
-  24(7):7202–7214, 2023. [doi:10.1109/TITS.2023.3258480](https://doi.org/10.1109/TITS.2023.3258480)
-  · [project site](https://cardd-ustc.github.io/)
-- **Professional Standards for Vehicle Damage Assessment** — Saudi Authority for
-  Accredited Valuers (Taqeem). Staged locally in `references/`.
-- Further references in [`docs/references.md`](docs/references.md).
+- **CarDD** — Wang, Li & Wu, *CarDD: A New Dataset for Vision-Based Car Damage Detection*, IEEE Transactions on Intelligent Transportation Systems, 24(7):7202–7214, 2023. [doi:10.1109/TITS.2023.3258480](https://doi.org/10.1109/TITS.2023.3258480)
+- **Professional Standards for Vehicle Damage Assessment** — Saudi Authority for Accredited Valuers (Taqeem). See [`docs/references.md`](docs/references.md).
 
 ---
 
-## Disclaimer
-
-This project is a proof of concept and **does not replace professional vehicle
-assessment**. Its output is a preliminary aid for human review, not a final
-decision.
+<div align="center">
+<sub>Qaddir supports preliminary assessment only. It does not replace professional vehicle inspection.</sub>
+</div>
