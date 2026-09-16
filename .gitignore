@@ -21,6 +21,9 @@ frontend/.npm-cache/
 # Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+build/
+dist/
 
 # Jupyter
 .ipynb_checkpoints/
@@ -46,6 +49,10 @@ cache/
 kaggle/working/
 kaggle/temp/
 .kaggle/
+
+# ...except the stored prompt-test reports, which are TASK-25/TASK-26 deliverables
+!prompts/v1/outputs/
+!prompts/v2/outputs/
 
 # Editors and operating systems
 .vscode/

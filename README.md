@@ -329,6 +329,14 @@ python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
 pip install -r requirements.txt
+pip install -e .
+```
+
+The final step installs the project itself, so `import qaddir` works from
+notebooks and scripts. Check it:
+
+```bash
+python -c "import qaddir; print(qaddir.__version__)"
 ```
 
 Then open `notebooks/` and select the project virtual environment as the kernel.

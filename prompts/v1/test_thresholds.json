@@ -1,0 +1,14 @@
+{
+  "_label": "TEST-ONLY THRESHOLD CONFIGURATION — NOT PRODUCTION POLICY",
+  "_status": "uncalibrated placeholders",
+  "_source_of_truth": "docs/llm_scope_and_constraints.md (TASK-24) §5 defines these parameters and deliberately leaves their values unset. Final values remain pending TASK-18 and TASK-23. Nothing in this file constitutes a calibration decision.",
+  "_purpose": "Prompt V1 cannot be executed without concrete numbers. These values were chosen for one reason only: to place the TASK-25 fixtures on both sides of every decision boundary so each branch of the prompt is exercised at least once. They carry no empirical justification and must not be cited as recommended values.",
+  "_replace_when": "TASK-18 selects the production damage model and TASK-23 measures matching accuracy. Replace the values below; the prompt and runner read them from here and need no edits.",
+  "thresholds": {
+    "T_DAMAGE_REPORT": 0.30,
+    "T_DAMAGE_HEDGE": 0.60,
+    "T_PART_REPORT": 0.50,
+    "T_ASSOC_STATE": 0.60,
+    "T_ASSOC_AMBIG": 0.10
+  }
+}

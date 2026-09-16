@@ -1,0 +1,10 @@
+{
+  "image": { "id": "fx-06", "usable": true, "quality_note": null },
+  "damage_detections": [
+    { "id": "d1", "class": "lamp_broken", "confidence": 0.74 }
+  ],
+  "part_detections": [],
+  "associations": [
+    { "damage_id": "d1", "part_id": null, "confidence": 0.0, "alternatives": [] }
+  ]
+}
