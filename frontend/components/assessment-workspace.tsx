@@ -9,10 +9,11 @@ const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 10 * 1024 * 1024;
 
 const workflow = [
-  ["01", "Image intake", "Format and quality screening"],
-  ["02", "Vision analysis", "Damage and part detection"],
-  ["03", "Verification", "Evidence and confidence checks"],
-  ["04", "Preliminary report", "Grounded assessor summary"],
+  ["01", "Input image", "Vehicle photo from user"],
+  ["02", "CV inference", "Damage and vehicle-part detection"],
+  ["03", "Damage-to-part", "Evidence association"],
+  ["04", "Verification", "Schema and confidence checks"],
+  ["05", "Review output", "Human-reviewable result"],
 ];
 
 function readable(value: string) {
@@ -114,7 +115,7 @@ export function AssessmentWorkspace() {
         <div className="section-heading">
           <div>
             <span className="kicker">New assessment</span>
-            <h2>Upload vehicle imagery</h2>
+            <h2>Vehicle image intake</h2>
           </div>
           <span className={`readiness ${readiness.ready ? "is-ready" : ""}`}>
             <i />{readiness.label}
@@ -156,10 +157,10 @@ export function AssessmentWorkspace() {
             ) : (
               <div className="dropzone-content">
                 <span className="upload-icon"><UploadIcon /></span>
-                <h3>Drop a vehicle image here</h3>
-                <p>Use a clear full or medium-distance view for more reliable part identification.</p>
+                <h3>Upload a vehicle image</h3>
+                <p>Provide a clear vehicle image so damage and vehicle-part evidence can be assessed consistently.</p>
                 <button type="button" className="secondary-button" onClick={() => inputRef.current?.click()}>
-                  Choose image
+                  Select image
                 </button>
                 <small>JPEG, PNG or WebP · 10 MB maximum</small>
               </div>
@@ -169,7 +170,7 @@ export function AssessmentWorkspace() {
 
           <aside className="capture-guide">
             <div className="guide-icon"><ImageIcon /></div>
-            <h3>Capture guidance</h3>
+            <h3>Image quality guidance</h3>
             <ul>
               <li><i />Keep the affected panel in clear view</li>
               <li><i />Include surrounding vehicle context</li>
@@ -193,7 +194,7 @@ export function AssessmentWorkspace() {
         <div className="action-row">
           <p><ShieldIcon /> Images are processed only for this preliminary assessment.</p>
           <button className="primary-button" type="button" onClick={analyze} disabled={loading || !file}>
-            {loading ? <><span className="spinner" />Running analysis</> : <>Run AI analysis<ArrowIcon /></>}
+            {loading ? <><span className="spinner" />Running analysis</> : <>Start assessment<ArrowIcon /></>}
           </button>
         </div>
       </section>
