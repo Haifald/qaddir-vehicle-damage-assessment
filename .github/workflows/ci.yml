@@ -1,0 +1,56 @@
+name: CI
+
+# Read-only checks. No secrets, no model inference, no training, and nothing
+# here writes to the repository or alters any recorded result.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  prompt-integrity:
+    name: Prompt integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Fails if the frozen production prompt or its thresholds differ by a
+      # single byte from the Prompt V2 that TASK-27 evaluated.
+      - run: python prompts/production/verify_production.py
+
+  backend-tests:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # The tests import only pydantic and Pillow; ultralytics and openai are
+      # imported lazily by the application. Versions come straight from
+      # backend/requirements.txt so no range is duplicated here.
+      - run: grep -E '^(pydantic|Pillow)' backend/requirements.txt | xargs pip install
+      - run: python -m unittest discover -s backend/tests -t backend -v
+
+  frontend-typecheck:
+    name: Frontend typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
