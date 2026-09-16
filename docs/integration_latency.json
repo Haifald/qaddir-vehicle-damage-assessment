@@ -1,0 +1,72 @@
+{
+  "image": "/Users/ruba/Downloads/CarDD_YOLO/images/test/001493.jpg",
+  "runs": [
+    {
+      "validation_ms": 12.23,
+      "cv_inference_association_structure_ms": 760.22,
+      "verification_ms": 0.08,
+      "report_generation_and_guard_ms": null,
+      "total_ms": 772.53,
+      "verification_status": "manual_review",
+      "report_status": "blocked",
+      "report_detail": "manual_review",
+      "damage_count": 4,
+      "part_count": 10,
+      "association_count": 4,
+      "run": 1,
+      "mode": "cold"
+    },
+    {
+      "validation_ms": 4.58,
+      "cv_inference_association_structure_ms": 105.0,
+      "verification_ms": 0.03,
+      "report_generation_and_guard_ms": null,
+      "total_ms": 109.61,
+      "verification_status": "manual_review",
+      "report_status": "blocked",
+      "report_detail": "manual_review",
+      "damage_count": 4,
+      "part_count": 10,
+      "association_count": 4,
+      "run": 2,
+      "mode": "warm"
+    },
+    {
+      "validation_ms": 4.69,
+      "cv_inference_association_structure_ms": 107.47,
+      "verification_ms": 0.03,
+      "report_generation_and_guard_ms": null,
+      "total_ms": 112.21,
+      "verification_status": "manual_review",
+      "report_status": "blocked",
+      "report_detail": "manual_review",
+      "damage_count": 4,
+      "part_count": 10,
+      "association_count": 4,
+      "run": 3,
+      "mode": "warm"
+    }
+  ],
+  "warm_average_ms": {
+    "validation_ms": 4.63,
+    "cv_inference_association_structure_ms": 106.23,
+    "verification_ms": 0.03,
+    "total_ms": 110.91,
+    "report_generation_and_guard_ms": null
+  },
+  "configuration": {
+    "cv_confidence": 0.25,
+    "cv_image_size": 640,
+    "cv_device": "cpu",
+    "thresholds_configured": false,
+    "llm_configured": false,
+    "damage_model": "qaddir_damage_best.pt",
+    "part_model": "carparts_yolo11n_wheel_fixed_v3_best.pt"
+  },
+  "notes": [
+    "Run 1 is cold and includes any one-time lazy model loading cost.",
+    "Warm averages use runs 2..N on the same pipeline instance.",
+    "CV stage includes damage inference, part inference, association, and structured-record creation.",
+    "Report latency is null when verification blocks the LLM or the LLM is not configured."
+  ]
+}
