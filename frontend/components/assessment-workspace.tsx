@@ -2,7 +2,9 @@
 
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { assessImage, fetchHealth } from "@/lib/api";
+import { readable } from "@/lib/format";
 import type { ApiError, AssessmentResponse, HealthResponse } from "@/lib/types";
+import { AssessmentResult } from "./assessment-result";
 import { ArrowIcon, ImageIcon, ShieldIcon, UploadIcon } from "./icons";
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -15,14 +17,6 @@ const workflow = [
   ["04", "Verification", "Schema and confidence checks"],
   ["05", "Review output", "Human-reviewable result"],
 ];
-
-function readable(value: string) {
-  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function confidence(value: number) {
-  return `${Math.round(value * 100)}%`;
-}
 
 export function AssessmentWorkspace() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -210,82 +204,4 @@ export function AssessmentWorkspace() {
       )}
     </>
   );
-}
-
-function AssessmentResult({ result, originalPreview }: { result: AssessmentResponse; originalPreview: string | null }) {
-  const damageById = new Map(result.cv_output.damage_detections.map((item) => [item.id, item]));
-  const partById = new Map(result.cv_output.part_detections.map((item) => [item.id, item]));
-  const associations = new Map(result.cv_output.associations.map((item) => [item.damage_id, item]));
-  const statusLabel = readable(result.verification.status);
-
-  return (
-    <section className="results-shell" aria-live="polite">
-      <div className="section-heading results-heading">
-        <div><span className="kicker">Assessment {result.analysis_id.slice(0, 8)}</span><h2>Preliminary result</h2></div>
-        <span className={`verification-pill status-${result.verification.status}`}><ShieldIcon />{statusLabel}</span>
-      </div>
-
-      <div className="evidence-grid">
-        <div className="evidence-card">
-          <div className="card-label"><span>Visual model result</span><small>Damage · Part</small></div>
-          {/* Result imagery comes from the local API or the local upload preview. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={result.overlay_data_url ?? originalPreview ?? ""} alt="Vehicle analysis overlay" />
-        </div>
-        <div className="metrics-card">
-          <div className="metric"><span>Detected damage</span><strong>{result.cv_output.damage_detections.length}</strong></div>
-          <div className="metric"><span>Detected parts</span><strong>{result.cv_output.part_detections.length}</strong></div>
-          <div className="metric wide"><span>Severity</span><strong className="not-assessed">Not assessed</strong><small>Not produced by the current CV models</small></div>
-          <div className="metric wide"><span>Verification status</span><strong>{statusLabel}</strong></div>
-        </div>
-      </div>
-
-      <div className="findings-card">
-        <div className="card-label"><span>Structured findings</span><small>Verified CV contract</small></div>
-        {result.cv_output.damage_detections.length === 0 ? (
-          <div className="empty-finding">No damage was detected in this image. This does not establish that the vehicle is undamaged.</div>
-        ) : (
-          <div className="findings-table">
-            <div className="table-row table-head"><span>Damage type</span><span>Vehicle part</span><span>AI confidence</span><span>Link confidence</span></div>
-            {[...damageById.values()].map((damage) => {
-              const association = associations.get(damage.id);
-              const part = association?.part_id ? partById.get(association.part_id) : null;
-              return (
-                <div className="table-row" key={damage.id}>
-                  <span data-label="Damage type">{readable(damage.class)}</span>
-                  <span data-label="Vehicle part">{part ? readable(part.class) : "Not determined"}</span>
-                  <span data-label="AI confidence"><ConfidenceBar value={damage.confidence} /></span>
-                  <span data-label="Link confidence">{association ? confidence(association.confidence) : "—"}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {result.verification.issues.length > 0 && (
-        <div className="review-card">
-          <div><span className="review-symbol">!</span><div><strong>Manual review required</strong><p>The verification layer identified items that need assessor attention.</p></div></div>
-          <ul>{result.verification.issues.map((issue) => <li key={`${issue.code}-${issue.path}`}>{issue.message}</li>)}</ul>
-        </div>
-      )}
-
-      <div className="report-grid">
-        <article className="report-card">
-          <div className="card-label"><span>Preliminary assessment</span><small>{readable(result.report.status)}</small></div>
-          {result.report.text ? <pre>{result.report.text}</pre> : <p className="unavailable-copy">{result.report.message}</p>}
-        </article>
-        <aside className="recommendation-card">
-          <span>Recommendation</span>
-          <p>{result.recommendation}</p>
-          <hr />
-          <small>{result.disclaimer}</small>
-        </aside>
-      </div>
-    </section>
-  );
-}
-
-function ConfidenceBar({ value }: { value: number }) {
-  return <span className="confidence"><span><i style={{ width: `${value * 100}%` }} /></span><b>{confidence(value)}</b></span>;
 }

@@ -6,11 +6,16 @@ export interface Detection {
   confidence: number;
 }
 
+export interface AssociationAlternative {
+  part_id: string;
+  confidence: number;
+}
+
 export interface Association {
   damage_id: string;
   part_id: string | null;
   confidence: number;
-  alternatives: Array<{ part_id: string; confidence: number }>;
+  alternatives: AssociationAlternative[];
 }
 
 export interface CVRecord {
@@ -20,28 +25,43 @@ export interface CVRecord {
   associations: Association[];
 }
 
+export interface VisualDetection {
+  id: string;
+  kind: "damage" | "part";
+  class_name: string;
+  confidence: number;
+  bbox: [number, number, number, number];
+}
+
+export interface VerificationIssue {
+  code: string;
+  message: string;
+  path: string | null;
+  level: "review" | "error";
+}
+
+export interface VerificationResult {
+  status: VerificationStatus;
+  llm_eligible: boolean;
+  issues: VerificationIssue[];
+}
+
+export type ReportStatus = "generated" | "unavailable" | "blocked" | "failed";
+
+export interface ReportResult {
+  status: ReportStatus;
+  text: string | null;
+  message: string | null;
+}
+
 export interface AssessmentResponse {
   analysis_id: string;
   cv_output: CVRecord;
-  visual_detections: Array<{
-    id: string;
-    kind: "damage" | "part";
-    class_name: string;
-    confidence: number;
-    bbox: [number, number, number, number];
-  }>;
+  visual_detections: VisualDetection[];
   overlay_data_url: string | null;
-  verification: {
-    status: VerificationStatus;
-    llm_eligible: boolean;
-    issues: Array<{ code: string; message: string; path: string | null; level: "review" | "error" }>;
-  };
+  verification: VerificationResult;
   severity: null;
-  report: {
-    status: "generated" | "unavailable" | "blocked" | "failed";
-    text: string | null;
-    message: string | null;
-  };
+  report: ReportResult;
   recommendation: string;
   disclaimer: string;
 }
