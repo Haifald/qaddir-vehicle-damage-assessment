@@ -53,8 +53,10 @@ curl -s -X POST \
 
 **Pass criterion:** the API returns a structured JSON response or a controlled documented error. It must not expose a traceback or crash the server. Record the observed HTTP status and high-level outcome below after the run.
 
-- HTTP status: `PENDING`
-- Outcome: `PENDING`
+- HTTP status: `200`
+- Outcome: structured assessment response; image marked usable, 0 damage and 0 part detections, verification `manual_review` (`thresholds_not_calibrated`), report `blocked`. No traceback was returned or logged.
+
+The same non-vehicle input is also exercised in process, together with undersized, corrupt and wrong-type inputs, by the TASK-35 robustness probes in [`system_evaluation.md`](system_evaluation.md#6-runtime-and-robustness).
 
 ## Latency profiling
 
@@ -78,18 +80,30 @@ The warm-run average is the relevant number for the live-demo interaction after 
 
 ## Latency result
 
-The measured values are stored in `docs/integration_latency.json` after profiling. Do not copy a latency number into this document until the profiler has been run on the presentation machine/configuration.
+Profiled on the presentation laptop CPU with `001493.jpg`, confidence 0.25, image size 640, thresholds and LLM not configured. Full per-run values are in [`integration_latency.json`](integration_latency.json).
+
+| Stage | Warm average |
+|---|--:|
+| Image validation | 4.63 ms |
+| CV inference + association + structured record | 106.23 ms |
+| Verification | 0.03 ms |
+| Report generation + output guard | not run (verification blocked the LLM) |
+| **Total** | **110.91 ms** |
+
+The cold first run took 772.53 ms, most of it one-time model loading. The profile records the damage checkpoint by file name only; the hash-verified TASK-35 run of the committed Exp7 model over 311 images measured a consistent warm p50 of 107.7 ms (p95 115.1 ms).
+
+Warm latency is acceptable for the live demo, so no optimisation was required. Report-generation latency remains unmeasured until thresholds are calibrated and an LLM is configured.
 
 If the dominant stage is too slow for the demo, the first optimization should preserve one-time model loading and reuse the same `UltralyticsCVPipeline` instance across requests. The current FastAPI application already creates the pipeline/service at module startup, so profiling should confirm whether additional optimization is actually necessary before changing code.
 
 ## Definition-of-Done checklist
 
-- [ ] Full backend test suite passes, including `test_integration.py`.
-- [ ] Normal, no-damage, no-part and low-confidence handling paths are covered.
-- [ ] Corrupt/missing input and CV/API failures return controlled errors.
-- [ ] LLM API failure, timeout and rate-limit paths are covered without live API calls.
-- [ ] A real configured pipeline is spot-checked with a non-vehicle image.
-- [ ] `docs/integration_latency.json` exists with cold and warm stage/total measurements.
-- [ ] Warm latency is reviewed for live-demo acceptability; any required optimization is documented.
+- [x] Full backend test suite passes, including `test_integration.py`.
+- [x] Normal, no-damage, no-part and low-confidence handling paths are covered.
+- [x] Corrupt/missing input and CV/API failures return controlled errors.
+- [x] LLM API failure, timeout and rate-limit paths are covered without live API calls.
+- [x] A real configured pipeline is spot-checked with a non-vehicle image.
+- [x] `docs/integration_latency.json` exists with cold and warm stage/total measurements.
+- [x] Warm latency is reviewed for live-demo acceptability; any required optimization is documented.
 
 TASK-30 should only be moved to **Done** after every box above is supported by an actual test/profile result.

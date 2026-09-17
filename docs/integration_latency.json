@@ -1,5 +1,5 @@
 {
-  "image": "/Users/ruba/Downloads/CarDD_YOLO/images/test/001493.jpg",
+  "image": "001493.jpg",
   "runs": [
     {
       "validation_ms": 12.23,

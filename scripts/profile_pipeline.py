@@ -145,7 +145,7 @@ def main() -> None:
     )
 
     output = {
-        "image": str(args.image),
+        "image": args.image.name,
         "runs": runs,
         "warm_average_ms": warm_average,
         "configuration": {
