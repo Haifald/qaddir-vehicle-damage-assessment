@@ -363,8 +363,24 @@ main::after { right: -78px; bottom: 120px; }
 .level-error { color: var(--red); }
 .report-grid { margin-top: 18px; display: grid; grid-template-columns: 1.55fr .65fr; gap: 18px; }
 .report-provenance { margin: 0; padding: 12px 21px; border-top: 1px solid var(--line); background: #fcfbff; color: var(--muted); font-size: 8px; line-height: 1.55; }
-.report-card pre { margin: 0; padding: 21px; white-space: pre-wrap; font-family: inherit; color: #4f567a; font-size: 9px; line-height: 1.75; }
-.unavailable-copy { padding: 21px; color: var(--muted); font-size: 9px; line-height: 1.65; }
+.report-body { max-height: 520px; overflow: auto; }
+.report-card pre { margin: 0; padding: 22px 24px; white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; color: var(--ink-2); font-size: 12px; line-height: 1.75; }
+.report-generated { border-top: 3px solid var(--purple); }
+.report-blocked, .report-failed, .report-unavailable { border-top: 3px solid var(--line-strong); }
+.report-status { padding: 3px 8px; border-radius: 999px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
+.report-status.status-generated { color: var(--purple-dark); background: var(--purple-soft); }
+.report-status.status-blocked, .report-status.status-failed { color: var(--amber); background: var(--amber-bg); }
+.report-status.status-unavailable { color: var(--muted); background: #f3f3f8; }
+.unavailable-copy { padding: 21px; color: var(--muted); font-size: 10px; line-height: 1.65; }
+.unavailable-copy p { margin: 0; }
+.unavailable-copy p + p { margin-top: 8px; color: var(--muted-2); font-size: 9px; }
+
+.loading-shell { display: flex; align-items: flex-start; gap: 18px; }
+.loading-shell h2 { margin: 7px 0 8px; font-size: 22px; letter-spacing: -.03em; }
+.loading-shell p { max-width: 640px; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.65; }
+.spinner-violet { flex: 0 0 auto; width: 28px; height: 28px; margin-top: 4px; border-width: 3px; border-color: var(--lavender); border-top-color: var(--purple); }
+.preview-scrim button:disabled { opacity: .5; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
 .recommendation-card { padding: 22px; color: white; border: 0; background: linear-gradient(145deg, #171d4c, #0c1238); box-shadow: 0 12px 28px rgba(12,18,56,.14); }
 .recommendation-card > span { color: #aaaee0; }
 .recommendation-card p { margin: 15px 0 22px; font-size: 13px; line-height: 1.55; }

@@ -295,32 +295,60 @@ function VerificationSummary({ verification }: { verification: VerificationResul
   );
 }
 
-const REPORT_TITLE: Record<ReportResult["status"], string> = {
-  generated: "Preliminary report",
-  blocked: "Report not generated",
-  unavailable: "Report service unavailable",
-  failed: "Report withheld",
+const REPORT_COPY: Record<ReportResult["status"], { title: string; detail: string }> = {
+  generated: {
+    title: "Preliminary report",
+    detail: "",
+  },
+  blocked: {
+    title: "Report not generated",
+    detail:
+      "Report generation was blocked because the structured record did not pass verification for automated reporting. " +
+      "It was not sent to the language model.",
+  },
+  unavailable: {
+    title: "Report service unavailable",
+    detail: "The report generation service is not configured or not available, so no report was generated.",
+  },
+  failed: {
+    title: "Report withheld",
+    detail:
+      "A report could not be completed or did not pass the output safety checks, so it has been withheld.",
+  },
 };
 
+const CV_STILL_AVAILABLE = "The computer-vision findings above are unaffected and remain available for review.";
+
+// `report.message` is intentionally not rendered: for unavailable and failed
+// reports it can contain provider configuration or exception text.
 function ReportSummary({ report }: { report: ReportResult }) {
+  const copy = REPORT_COPY[report.status];
+  const text = report.status === "generated" ? report.text?.trim() : undefined;
+
   return (
-    <article className="report-card">
+    <article className={`report-card report-${report.status}`} aria-labelledby="report-title">
       <div className="card-label">
-        <span>{REPORT_TITLE[report.status]}</span>
-        <small>{readable(report.status)}</small>
+        <span id="report-title">{copy.title}</span>
+        <small className={`report-status status-${report.status}`}>{readable(report.status)}</small>
       </div>
-      {report.status === "generated" && report.text ? (
+      {text ? (
         <>
-          <pre>{report.text}</pre>
+          <div className="report-body">
+            <pre>{text}</pre>
+          </div>
           <p className="report-provenance">
             Written by the language model from verified structured CV data only. The language model does not view the image.
           </p>
         </>
       ) : (
-        <p className="unavailable-copy">
-          {report.message ?? "No preliminary report was returned for this assessment."}
-          {report.status === "blocked" && " The language model only receives records that pass verification."}
-        </p>
+        <div className="unavailable-copy">
+          <p>
+            {report.status === "generated"
+              ? "The report service returned an empty report, so there is no report text to show."
+              : copy.detail}
+          </p>
+          <p>{CV_STILL_AVAILABLE}</p>
+        </div>
       )}
     </article>
   );

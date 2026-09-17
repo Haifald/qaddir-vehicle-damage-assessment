@@ -2,8 +2,9 @@
 
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { assessImage, fetchHealth } from "@/lib/api";
+import { clientError, describeError, type UserFacingError } from "@/lib/errors";
 import { readable } from "@/lib/format";
-import type { ApiError, AssessmentResponse, HealthResponse } from "@/lib/types";
+import type { AssessmentResponse, HealthResponse } from "@/lib/types";
 import { AssessmentResult } from "./assessment-result";
 import { ArrowIcon, ImageIcon, ShieldIcon, UploadIcon } from "./icons";
 
@@ -27,7 +28,10 @@ export function AssessmentWorkspace() {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AssessmentResponse | null>(null);
-  const [error, setError] = useState<(Error & Partial<ApiError>) | null>(null);
+  const [error, setError] = useState<UserFacingError | null>(null);
+  // Synchronous guard: `loading` state updates are async, so a fast double click
+  // could otherwise start two requests before the button re-renders as disabled.
+  const inFlight = useRef(false);
 
   useEffect(() => {
     fetchHealth().then(setHealth).catch(() => setHealthFailed(true));
@@ -52,15 +56,16 @@ export function AssessmentWorkspace() {
   }, [health, healthFailed]);
 
   function selectFile(nextFile: File | undefined) {
+    if (inFlight.current) return;
     setResult(null);
     setError(null);
     if (!nextFile) return;
     if (!ACCEPTED_TYPES.includes(nextFile.type)) {
-      setError(Object.assign(new Error("Upload a JPEG, PNG, or WebP image."), { code: "invalid_image" }));
+      setError(clientError("invalid_image", "Upload a JPEG, PNG, or WebP image."));
       return;
     }
     if (nextFile.size > MAX_BYTES) {
-      setError(Object.assign(new Error("The selected image is larger than 10 MB."), { code: "invalid_image" }));
+      setError(clientError("invalid_image", "The selected image is larger than 10 MB."));
       return;
     }
     setFile(nextFile);
@@ -77,18 +82,21 @@ export function AssessmentWorkspace() {
   }
 
   async function analyze() {
+    if (inFlight.current) return;
     if (!file) {
-      setError(Object.assign(new Error("Choose a vehicle image before running analysis."), { code: "no_image" }));
+      setError(clientError("no_image", "Choose a vehicle image before running analysis."));
       return;
     }
+    inFlight.current = true;
     setLoading(true);
     setError(null);
     setResult(null);
     try {
       setResult(await assessImage(file));
     } catch (caught) {
-      setError(caught as Error & Partial<ApiError>);
+      setError(describeError(caught));
     } finally {
+      inFlight.current = false;
       setLoading(false);
     }
   }
@@ -134,7 +142,8 @@ export function AssessmentWorkspace() {
         <div className="upload-grid">
           <div
             className={`dropzone ${dragging ? "is-dragging" : ""} ${preview ? "has-preview" : ""}`}
-            onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
+            aria-busy={loading}
+            onDragOver={(event) => { event.preventDefault(); if (!loading) setDragging(true); }}
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
           >
@@ -145,7 +154,7 @@ export function AssessmentWorkspace() {
                 <img src={preview} alt="Selected vehicle" className="preview-image" />
                 <div className="preview-scrim">
                   <span>{file?.name}</span>
-                  <button type="button" onClick={() => inputRef.current?.click()}>Replace image</button>
+                  <button type="button" onClick={() => inputRef.current?.click()} disabled={loading}>Replace image</button>
                 </div>
               </>
             ) : (
@@ -159,7 +168,7 @@ export function AssessmentWorkspace() {
                 <small>JPEG, PNG or WebP · 10 MB maximum</small>
               </div>
             )}
-            <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onInput} hidden />
+            <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onInput} disabled={loading} hidden />
           </div>
 
           <aside className="capture-guide">
@@ -179,9 +188,9 @@ export function AssessmentWorkspace() {
 
         {error && (
           <div className="error-banner" role="alert">
-            <strong>{error.code === "cv_pipeline_unavailable" ? "CV pipeline not configured" : "Analysis could not continue"}</strong>
+            <strong>{error.title}</strong>
             <p>{error.message}</p>
-            {error.code === "cv_pipeline_unavailable" && <small>No assessment result was generated.</small>}
+            {error.note && <small>{error.note}</small>}
           </div>
         )}
 
@@ -193,9 +202,11 @@ export function AssessmentWorkspace() {
         </div>
       </section>
 
-      {result && <AssessmentResult result={result} originalPreview={preview} />}
+      {loading && <AssessmentLoading />}
 
-      {!result && (
+      {result && !loading && <AssessmentResult result={result} originalPreview={preview} />}
+
+      {!result && !loading && (
         <section className="principles">
           <div><span>01</span><h3>Traceable</h3><p>Every report statement maps back to a structured CV field.</p></div>
           <div><span>02</span><h3>Conservative</h3><p>Contradictions are rejected and uncertainty is made visible.</p></div>
@@ -203,5 +214,21 @@ export function AssessmentWorkspace() {
         </section>
       )}
     </>
+  );
+}
+
+function AssessmentLoading() {
+  return (
+    <section className="results-shell loading-shell" role="status" aria-live="polite" aria-busy="true">
+      <span className="spinner spinner-violet" aria-hidden="true" />
+      <div>
+        <span className="kicker">Assessment in progress</span>
+        <h2>Running analysis</h2>
+        <p>
+          The image is being processed by the computer-vision models, then damage-to-part association and
+          verification run on the structured result. Results will appear here when processing finishes.
+        </p>
+      </div>
+    </section>
   );
 }
