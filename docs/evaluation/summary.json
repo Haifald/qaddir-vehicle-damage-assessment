@@ -1,0 +1,195 @@
+{
+  "task": "TASK-35 integrated end-to-end system evaluation",
+  "generated_at": "2026-09-17T14:11:37+00:00",
+  "configuration": {
+    "damage_model": "qaddir_damage_best.pt",
+    "damage_model_sha256_prefix": "b86d95d6cc207ae4",
+    "part_model": "carparts_yolo11n_wheel_fixed_v3_best.pt",
+    "part_model_sha256_prefix": "46c0600fe767a68a",
+    "cv_confidence": 0.25,
+    "cv_image_size": 640,
+    "cv_device": "cpu",
+    "thresholds_calibrated": false,
+    "llm_called": false,
+    "platform": "Darwin arm64, Python 3.12.14"
+  },
+  "dataset": {
+    "images_found": 320,
+    "duplicate_files_skipped": 9,
+    "unique_images_evaluated": 311,
+    "labelled_images": 222,
+    "unlabelled_images": 89
+  },
+  "damage_detection_operating_point": {
+    "iou_threshold": 0.5,
+    "class_aware": {
+      "tp": 308,
+      "fp": 261,
+      "fn": 142,
+      "precision": 0.5413,
+      "recall": 0.6844
+    },
+    "class_agnostic": {
+      "precision": 0.5536,
+      "recall": 0.7
+    },
+    "missed_ground_truth": {
+      "not_localised": 134,
+      "localised_with_wrong_class": 8
+    },
+    "per_class": {
+      "crack": {
+        "ground_truth": 34,
+        "predictions": 35,
+        "tp": 16,
+        "fp": 19,
+        "fn": 18,
+        "precision": 0.4571,
+        "recall": 0.4706,
+        "f1": 0.4638
+      },
+      "dent": {
+        "ground_truth": 139,
+        "predictions": 145,
+        "tp": 84,
+        "fp": 61,
+        "fn": 55,
+        "precision": 0.5793,
+        "recall": 0.6043,
+        "f1": 0.5915
+      },
+      "glass_shatter": {
+        "ground_truth": 45,
+        "predictions": 52,
+        "tp": 43,
+        "fp": 9,
+        "fn": 2,
+        "precision": 0.8269,
+        "recall": 0.9556,
+        "f1": 0.8866
+      },
+      "lamp_broken": {
+        "ground_truth": 34,
+        "predictions": 40,
+        "tp": 29,
+        "fp": 11,
+        "fn": 5,
+        "precision": 0.725,
+        "recall": 0.8529,
+        "f1": 0.7838
+      },
+      "scratch": {
+        "ground_truth": 176,
+        "predictions": 274,
+        "tp": 117,
+        "fp": 157,
+        "fn": 59,
+        "precision": 0.427,
+        "recall": 0.6648,
+        "f1": 0.52
+      },
+      "tire_flat": {
+        "ground_truth": 22,
+        "predictions": 23,
+        "tp": 19,
+        "fp": 4,
+        "fn": 3,
+        "precision": 0.8261,
+        "recall": 0.8636,
+        "f1": 0.8444
+      }
+    },
+    "images": {
+      "labelled": 222,
+      "with_at_least_one_correct_detection": 206,
+      "with_no_damage_detections": 4
+    }
+  },
+  "damage_to_part_association": {
+    "damage_detections": 820,
+    "linked_to_a_part": 763,
+    "not_linked": 57,
+    "with_alternatives": 530,
+    "leader_tied_with_alternative": 77,
+    "median_leader_overlap_score": 1.0,
+    "reference_sample": "60 correctly detected damage instances written for human verification",
+    "accuracy": null
+  },
+  "verification_and_report_gate": {
+    "verification_status": {
+      "rejected": 112,
+      "manual_review": 199
+    },
+    "llm_eligible": 0,
+    "report_status": {
+      "blocked": 311
+    },
+    "images_with_issue_code": {
+      "contradictory_alternative": 87,
+      "contradictory_association": 59,
+      "thresholds_not_calibrated": 199
+    },
+    "rejected_images_by_error_code": {
+      "contradictory_alternative": 87,
+      "contradictory_association": 59
+    }
+  },
+  "runtime": {
+    "model_load_and_readiness_ms": 649.86,
+    "completed": 311,
+    "failed": 0,
+    "failures": [],
+    "latency_ms": {
+      "mean": 110.16,
+      "p50": 107.66,
+      "p90": 112.47,
+      "p95": 115.13,
+      "max": 690.4
+    },
+    "note": "Warm, in-process service.assess(): validation, inference, association, overlay rendering, verification, report gate. Excludes HTTP transport."
+  },
+  "robustness_probes": [
+    {
+      "probe": "non_vehicle_blank_image",
+      "outcome": "structured_response",
+      "image_usable": true,
+      "damage_detections": 0,
+      "verification_status": "manual_review",
+      "report_status": "blocked"
+    },
+    {
+      "probe": "below_minimum_size",
+      "outcome": "structured_response",
+      "image_usable": false,
+      "damage_detections": 0,
+      "verification_status": "manual_review",
+      "report_status": "blocked"
+    },
+    {
+      "probe": "corrupt_bytes",
+      "outcome": "controlled_rejection",
+      "error": "invalid_image"
+    },
+    {
+      "probe": "unsupported_content_type",
+      "outcome": "controlled_rejection",
+      "error": "invalid_image"
+    }
+  ],
+  "damage_detection_dataset_map": {
+    "images": 222,
+    "precision": 0.757,
+    "recall": 0.6995,
+    "map50": 0.7306,
+    "map50_95": 0.5332,
+    "per_class_map50_95": {
+      "dent": 0.3495,
+      "scratch": 0.3117,
+      "crack": 0.1887,
+      "glass_shatter": 0.8164,
+      "lamp_broken": 0.6992,
+      "tire_flat": 0.8339
+    },
+    "note": "Ultralytics defaults (conf 0.001); comparable to the notebook test run, not to the operating point."
+  }
+}
