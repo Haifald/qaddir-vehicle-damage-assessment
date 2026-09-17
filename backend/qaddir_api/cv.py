@@ -10,6 +10,26 @@ from .config import DAMAGE_CLASSES, PART_CLASSES, Settings
 from .matching import associate_by_overlap
 from .schemas import CVRecord, DamageDetection, ImageEvidence, PartDetection, VisualDetection
 
+# The trained damage checkpoint advertises three classes with display spacing,
+# while the documented taxonomy (docs/damage_classes.md) and the frozen prompt's
+# controlled vocabulary use snake_case. Normalise here rather than editing the
+# checkpoint.
+#
+# Deliberately an explicit map, not a blanket space-to-underscore rewrite: an
+# unexpected label must still fail the vocabulary check instead of being
+# silently coerced into something that looks valid.
+MODEL_LABEL_ALIASES = {
+    "glass shatter": "glass_shatter",
+    "lamp broken": "lamp_broken",
+    "tire flat": "tire_flat",
+}
+
+
+def normalise_class_name(name: str) -> str:
+    """Map a checkpoint's advertised label to the documented taxonomy."""
+    stripped = name.strip()
+    return MODEL_LABEL_ALIASES.get(stripped, stripped)
+
 
 class ImageValidationError(ValueError):
     pass
@@ -175,7 +195,8 @@ class UltralyticsCVPipeline:
 
     @staticmethod
     def _assert_class_names(names: dict[int, str] | list[str], expected: frozenset[str], label: str) -> None:
-        actual = set(names.values() if isinstance(names, dict) else names)
+        raw = names.values() if isinstance(names, dict) else names
+        actual = {normalise_class_name(name) for name in raw}
         if actual != expected:
             raise PipelineUnavailableError(
                 f"The configured {label} model has classes {sorted(actual)}, expected {sorted(expected)}."
@@ -192,7 +213,7 @@ class UltralyticsCVPipeline:
             zip(boxes.xyxy.cpu().tolist(), boxes.conf.cpu().tolist(), boxes.cls.cpu().tolist()),
             start=1,
         ):
-            class_name = names[int(class_id)]
+            class_name = normalise_class_name(names[int(class_id)])
             if class_name not in allowed:
                 raise PipelineUnavailableError(
                     f"The {kind} model returned unsupported class '{class_name}'."
