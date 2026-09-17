@@ -55,7 +55,7 @@ A guarded language model reports only what was detected — for a person to revi
 </div>
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph APP["Application"]
         IN(["Vehicle image"]) --> VAL["Validate image"]
     end
