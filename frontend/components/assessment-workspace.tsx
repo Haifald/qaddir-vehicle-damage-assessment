@@ -59,6 +59,8 @@ export function AssessmentWorkspace() {
   // Synchronous guard: `loading` state updates are async, so a fast double click
   // could otherwise start two requests before the button re-renders as disabled.
   const inFlight = useRef(false);
+  // The loading panel and results render below the intake card, usually off-screen.
+  const outputRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchHealth().then(setHealth).catch(() => setHealthFailed(true));
@@ -74,6 +76,12 @@ export function AssessmentWorkspace() {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  useEffect(() => {
+    if (!loading && !result) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    outputRef.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  }, [loading, result]);
+
   const readiness = useMemo(() => {
     if (healthFailed) return { label: "API offline", ready: false };
     if (!health) return { label: "Checking pipeline", ready: false };
@@ -83,10 +91,10 @@ export function AssessmentWorkspace() {
   }, [health, healthFailed]);
 
   function selectFile(nextFile: File | undefined) {
-    if (inFlight.current) return;
+    // An empty selection (e.g. a cancelled file dialog) keeps the current image and result.
+    if (inFlight.current || !nextFile) return;
     setResult(null);
     setError(null);
-    if (!nextFile) return;
     if (!ACCEPTED_TYPES.includes(nextFile.type)) {
       setError(clientError("invalid_image", "Upload a JPEG, PNG, or WebP image."));
       return;
@@ -100,6 +108,8 @@ export function AssessmentWorkspace() {
 
   function onInput(event: ChangeEvent<HTMLInputElement>) {
     selectFile(event.target.files?.[0]);
+    // Reset so choosing the same file again still fires a change event.
+    event.target.value = "";
   }
 
   function onDrop(event: DragEvent<HTMLDivElement>) {
@@ -228,6 +238,8 @@ export function AssessmentWorkspace() {
           </button>
         </div>
       </section>
+
+      <div ref={outputRef} className="output-anchor" aria-hidden="true" />
 
       {loading && <AssessmentLoading />}
 
