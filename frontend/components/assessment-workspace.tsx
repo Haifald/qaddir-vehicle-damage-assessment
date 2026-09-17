@@ -19,6 +19,33 @@ const workflow = [
   ["05", "Review output", "Human-reviewable result"],
 ];
 
+// Fixed readiness copy. The health endpoint's `detail` strings can include
+// model file paths and provider configuration names, so they are not rendered.
+const HEALTH_COPY: Record<string, { ready: string; pending: string }> = {
+  cv: {
+    ready: "Damage and vehicle-part models are loaded.",
+    pending: "The computer-vision models are not ready.",
+  },
+  verification: {
+    ready: "Confidence thresholds are configured.",
+    pending: "Confidence thresholds are not calibrated, so automated reports stay blocked.",
+  },
+  prompt: {
+    ready: "The production report prompt is ready.",
+    pending: "The production report prompt is not ready.",
+  },
+  llm: {
+    ready: "The report generation service is configured.",
+    pending: "The report generation service is not configured.",
+  },
+};
+
+function healthCopy(name: string, ready: boolean): string {
+  const copy = HEALTH_COPY[name];
+  if (!copy) return ready ? "Ready." : "Not ready.";
+  return ready ? copy.ready : copy.pending;
+}
+
 export function AssessmentWorkspace() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -132,7 +159,7 @@ export function AssessmentWorkspace() {
                 <div key={name}>
                   <span className={component.ready ? "check" : "pending"}>{component.ready ? "Ready" : "Pending"}</span>
                   <strong>{readable(name)}</strong>
-                  <p>{component.detail}</p>
+                  <p>{healthCopy(name, component.ready)}</p>
                 </div>
               ))}
             </div>
